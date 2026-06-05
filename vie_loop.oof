@@ -1,0 +1,2080 @@
+/*
+================================================================================
+                       VIE VISUAL INPUT EDITOR LOOP
+================================================================================
+Modal interactive input editor loop. Handles command, insert, and normal modes,
+arrow navigation, cursor coordinate mappings, and files saving/exits.
+*/
+
+// Minimum utility function
+: min
+  over over < IF pop ELSE swap pop THEN
+;
+// Greater-than-or-equal logic utility
+: >=
+  < 0 ==
+;
+// Modulo helper (a % b)
+: mod
+  over over / * -
+;
+
+// Cache terminal layout and doc state properties into registers
+: init-frame-cache
+  me "/.vie/width" getprop to-int dup 80 < IF pop 80 THEN 900 !
+  me "/.vie/height" getprop to-int dup 22 < IF pop 22 THEN 901 !
+  me "/.vie/help_active" getprop "1" strcmp 0 == 903 !
+  903 @ IF
+    me "/.vie/help/lines/count" getprop to-int
+  ELSE
+    me "/.vie/lines/count" getprop to-int
+  THEN 902 !
+  me "/.vie/linenumbers" getprop "false" strcmp 0 == 0 == 904 !
+  me "/.vie/scroll/y" getprop to-int 905 !
+  901 @ 2 - 906 !
+  me "/.vie/wrap" getprop "true" strcmp 0 == 909 !
+  me "/.vie/scroll/x" getprop to-int 912 !
+  me "/.vie/theme/keywords" getprop to-int 920 !
+  me "/.vie/theme/prims" getprop to-int 921 !
+  me "/.vie/theme/ops" getprop to-int 922 !
+  me "/.vie/theme/nums" getprop to-int 923 !
+  me "/.vie/theme/strs" getprop to-int 924 !
+  me "/.vie/theme/comments" getprop to-int 925 !
+  me "/.vie/theme/lns" getprop to-int 926 !
+  me "/.vie/theme/gutter" getprop to-int 927 !
+;
+: get-w
+  900 @
+;
+: get-th
+  901 @
+;
+: is-help-active
+  903 @
+;
+: get-lines-count
+  902 @
+;
+: show-linenums?
+  904 @
+;
+// Write 32-bit int to heap
+: heap-i!
+  over 16777216 / over heap-!
+  over 65536 / 256 mod over 1 + heap-!
+  over 256 / 256 mod over 2 + heap-!
+  swap 256 mod swap 3 + heap-!
+;
+// Read 32-bit int from heap
+: heap-i@
+  dup heap-@ 16777216 *
+  over 1 + heap-@ 65536 * +
+  over 2 + heap-@ 256 * +
+  swap 3 + heap-@ +
+;
+// Write an entry for visual index i (1-indexed)
+: write-vis-line-entry
+  1 - 16 * 16 +
+  dup rot swap 12 + heap-i!
+  dup rot swap 8 + heap-i!
+  dup rot swap 4 + heap-i!
+  heap-i!
+;
+// Read fields for visual index i (1-indexed)
+: read-vis-line-entry
+  1 - 16 * 16 +
+  999 !
+  999 @ heap-i@
+  999 @ 4 + heap-i@
+  999 @ 8 + heap-i@
+  999 @ 12 + heap-i@
+;
+// String slice utility
+: str-slice
+  rot rot strcut swap pop swap strcut pop
+;
+// Get text of a visual line
+: get-vis-line-text
+  read-vis-line-entry
+  pop
+  rot get-line-at
+  rot rot
+  str-slice
+;
+
+// Convert ascii code to 1-char string
+: ascii-to-char-str
+  dup 34 == IF
+    pop #0 "/sys/double_quote" getprop
+  ELSE
+    dup 32 < IF
+      pop " "
+    ELSE
+      dup 126 > IF
+        pop " "
+      ELSE
+        32 -
+        " ! #$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+        swap strcut swap pop
+        1 strcut pop
+      THEN
+    THEN
+  THEN
+;
+
+// Compute heap address for a cell
+// ( row col grid_base -- addr )
+: db-addr
+  rot 1 -
+  get-w *
+  rot 1 - +
+  +
+;
+
+// Set character and color for next cell
+// ( char row col color -- )
+: db-set-cell
+  980 ! // color
+  981 ! // col
+  982 ! // row
+  983 ! // char
+  
+  983 @ 982 @ 981 @ 820000 db-addr heap-!
+  980 @ 982 @ 981 @ 830000 db-addr heap-!
+;
+
+// Convert 1-char string to ascii code
+: char-str-to-ascii
+  dup " " strcmp 0 == IF
+    pop 32
+  ELSE
+    dup #0 "/sys/double_quote" getprop strcmp 0 == IF
+      pop 34
+    ELSE
+      32
+      0
+      BEGIN
+        dup 95 <
+      WHILE
+        " ! #$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+        over strcut swap pop
+        1 strcut pop
+        4 pick strcmp 0 == IF
+          swap pop dup 32 + swap
+        THEN
+        1 +
+      REPEAT
+      pop
+      swap pop
+    THEN
+  THEN
+;
+
+// Write string to next buffer
+// ( string row col color -- )
+: db-set-string
+  db-write-string
+;
+
+// Clear next buffer with spaces and color 0
+: db-clear-next
+  get-w get-th db-clear-next-internal
+;
+
+// Clear both current and next buffers
+: db-init
+  get-w get-th db-init-internal
+;
+
+// Render next buffer to screen
+: db-flush
+  get-w get-th db-flush-internal
+;
+
+// Access text at a specific index mapping target doc
+: get-line-at
+  is-help-active IF
+    "/.vie/help/lines/" swap to-str + me swap getprop
+  ELSE
+    "/.vie/lines/" swap to-str + me swap getprop
+  THEN
+;
+// Returns number of printable text rows in visual editor area
+: get-vh
+  get-th 2 -
+;
+// Count digits in an integer (up to 99999)
+: count-digits
+  dup 10 < IF pop 1 ELSE
+  dup 100 < IF pop 2 ELSE
+  dup 1000 < IF pop 3 ELSE
+  dup 10000 < IF pop 4 ELSE
+  pop 5
+  THEN THEN THEN THEN
+;
+// Get the number of digits in the maximum line number
+: get-max-digits
+  get-lines-count count-digits
+;
+// Generate count spaces
+: get-spaces
+  "" swap
+  BEGIN
+    dup 0 >
+  WHILE
+    swap " " + swap
+    1 -
+  REPEAT
+  pop
+;
+// Pad string to length len with leading spaces
+: pad-left
+  over strlen over >= IF
+    pop
+  ELSE
+    swap
+    BEGIN
+      over over strlen >
+    WHILE
+      " " swap +
+    REPEAT
+    swap pop
+  THEN
+;
+// Returns the column offset width needed for line numbers prefix
+: get-linenum-w
+  show-linenums? IF get-max-digits 3 + ELSE 0 THEN
+;
+// Returns editable width layout bounds excluding line numbers space
+: get-tw
+  get-w get-linenum-w -
+;
+// Custom line number padding format generator for wrapped columns
+: format-linenum-wrap
+  show-linenums? IF
+    IF
+      pop get-max-digits get-spaces " | " +
+    ELSE
+      to-str get-max-digits pad-left " | " +
+    THEN
+  ELSE
+    pop pop ""
+  THEN
+;
+// Crops line parts exceeding visual boundary constraints
+: clip-line
+  dup strlen get-tw > IF
+    get-tw strcut pop
+  THEN
+;
+// Computes horizontal scrolling window chunk in unescaped line segments
+: slice-line
+  me "/.vie/scroll/x" getprop to-int
+  over strlen over <= IF
+    pop pop ""
+  ELSE
+    strcut swap pop
+    dup strlen get-tw > IF
+      get-tw strcut pop
+    THEN
+  THEN
+;
+// Word-wrap utility: locate space character boundary split index
+: find-last-space
+  over strlen over > IF
+    strcut pop
+  ELSE
+    pop
+  THEN
+  dup strlen 1 -
+  -1
+  rot rot
+  BEGIN
+    dup 0 >=
+  WHILE
+    over over strcut
+    1 strcut
+    pop swap pop
+    " " strcmp 0 == IF
+      rot pop over rot pop -1
+    ELSE
+      1 -
+    THEN
+  REPEAT
+  pop pop
+;
+: get-status-string
+  is-help-active IF
+    me "/.vie/mode" getprop to-int 2 == IF
+      " COMMAND "
+    ELSE
+      " HELP "
+    THEN
+  ELSE
+    me "/.vie/mode" getprop to-int
+    dup 0 == IF
+      " NORMAL "
+    ELSE
+      dup 1 == IF
+        " INSERT "
+      ELSE
+        " COMMAND "
+      THEN
+    THEN
+    swap pop
+  THEN
+  is-help-active IF
+    " | Press ESC to edit | Ln " me "/.vie/cursor/y" getprop + ", Col " + me "/.vie/cursor/x" getprop + +
+  ELSE
+    " | Property: #" me "/.vie/target/ref" getprop + " " + me "/.vie/target/key" getprop + " | Ln " + me "/.vie/cursor/y" getprop + ", Col " + me "/.vie/cursor/x" getprop + +
+  THEN
+  me "/.vie/wrap" getprop "true" strcmp 0 == IF
+    " [wrap]" +
+  ELSE
+    " [unwrap]" +
+  THEN
+  me "/.vie/mode" getprop to-int 2 == IF
+    " | :" me "/.vie/cmd_buf" getprop + +
+  THEN
+  me "/.vie/msg" getprop dup "" strcmp 0 == IF
+    pop
+  ELSE
+    " | " swap + +
+  THEN
+  BEGIN
+    dup strlen get-w 1 - <
+  WHILE
+    " " +
+  REPEAT
+;
+
+// Maximum utility function
+: max
+  over over < IF swap pop ELSE pop THEN
+;
+// Calculate predicted scroll/y for unwrap mode
+: predict-scroll-y-unwrap // ( sy cy vh -- new_sy )
+  1 pick 3 pick - 1 < IF
+    pop swap pop 1 - dup 0 < IF pop 0 THEN
+  ELSE
+    1 pick 3 pick - over > IF
+      swap rot pop swap -
+    ELSE
+      pop pop
+    THEN
+  THEN
+;
+
+: draw-status-line
+  get-status-string
+  get-th 1 0 db-set-string
+;
+// Parses character lines, wrapping text slices if visual mode wrap is active
+: build-visual-lines
+  me "/.vie/vis_dirty" getprop "1" strcmp 0 == IF
+    909 @ 0 == IF
+      // Unwrap mode: predict new scroll/y to set 907 and 908
+      905 @ me "/.vie/cursor/y" getprop to-int 906 @ predict-scroll-y-unwrap
+      dup 906 @ - dup 1 < IF pop 1 THEN 907 !
+      906 @ 2 * +
+      dup 902 @ > IF pop 902 @ THEN 908 !
+    ELSE
+      // Wrap mode: use old scroll/y for 907, and extended 908
+      905 @ 906 @ - dup 1 < IF pop 1 THEN 907 !
+      905 @ 906 @ 2 * +
+      me "/.vie/cursor/y" getprop to-int 906 @ + max
+      908 !
+    THEN
+
+    909 @ IF
+      me "/.vie/vis_lines/count" "0" setprop pop
+      1
+      BEGIN
+        dup get-lines-count <=
+        me "/.vie/vis_lines/count" getprop to-int 908 @ < *
+      WHILE
+        dup to-str me "/.vie/temp/cur_ln" rot setprop pop
+        dup get-line-at
+        me swap "/.vie/temp/cur_text" swap setprop pop
+        me "/.vie/temp/cur_text" getprop strlen 0 == IF
+          me "/.vie/vis_lines/count" getprop to-int 1 +
+          dup me swap "/.vie/vis_lines/count" swap to-str setprop pop
+          me "/.vie/temp/cur_ln" getprop to-int
+          0
+          0
+          0
+          rot
+          write-vis-line-entry
+        ELSE
+          0
+          BEGIN
+            dup to-str me swap "/.vie/temp/cur_offset" swap setprop pop
+            me "/.vie/temp/cur_text" getprop strlen me "/.vie/temp/cur_offset" getprop to-int >
+          WHILE
+            me "/.vie/temp/cur_text" getprop me "/.vie/temp/cur_offset" getprop to-int strcut swap pop
+            me swap "/.vie/temp/cur_chunk" swap setprop pop
+            me "/.vie/temp/cur_chunk" getprop strlen get-tw <= IF
+              me "/.vie/vis_lines/count" getprop to-int 1 +
+              dup me swap "/.vie/vis_lines/count" swap to-str setprop pop
+              997 !
+              me "/.vie/temp/cur_ln" getprop to-int
+              me "/.vie/temp/cur_offset" getprop to-int
+              me "/.vie/temp/cur_chunk" getprop strlen
+              me "/.vie/temp/cur_offset" getprop to-int 0 > IF 1 ELSE 0 THEN
+              997 @
+              write-vis-line-entry
+              
+              me "/.vie/temp/cur_offset" getprop to-int me "/.vie/temp/cur_chunk" getprop strlen + swap pop
+            ELSE
+              me "/.vie/temp/cur_chunk" getprop get-tw find-last-space
+              dup 0 > IF
+                dup to-str me "/.vie/temp/space_idx" rot setprop pop
+                me "/.vie/temp/cur_chunk" getprop swap strcut
+                swap me swap "/.vie/temp/left_chunk" swap setprop pop
+                me swap "/.vie/temp/right_chunk" swap setprop pop
+                
+                me "/.vie/vis_lines/count" getprop to-int 1 +
+                dup me swap "/.vie/vis_lines/count" swap to-str setprop pop
+                997 !
+                me "/.vie/temp/cur_ln" getprop to-int
+                me "/.vie/temp/cur_offset" getprop to-int
+                me "/.vie/temp/left_chunk" getprop strlen
+                me "/.vie/temp/cur_offset" getprop to-int 0 > IF 1 ELSE 0 THEN
+                997 @
+                write-vis-line-entry
+                
+                me "/.vie/temp/cur_offset" getprop to-int me "/.vie/temp/left_chunk" getprop strlen + 1 + swap pop
+              ELSE
+                pop
+                me "/.vie/temp/cur_chunk" getprop get-tw strcut
+                swap me swap "/.vie/temp/left_chunk" swap setprop pop
+                me swap "/.vie/temp/right_chunk" swap setprop pop
+                
+                me "/.vie/vis_lines/count" getprop to-int 1 +
+                dup me swap "/.vie/vis_lines/count" swap to-str setprop pop
+                997 !
+                me "/.vie/temp/cur_ln" getprop to-int
+                me "/.vie/temp/cur_offset" getprop to-int
+                get-tw
+                me "/.vie/temp/cur_offset" getprop to-int 0 > IF 1 ELSE 0 THEN
+                997 @
+                write-vis-line-entry
+                
+                me "/.vie/temp/cur_offset" getprop to-int get-tw + swap pop
+              THEN
+            THEN
+          REPEAT
+          pop
+        THEN
+        1 +
+      REPEAT
+      pop
+    ELSE
+      me "/.vie/vis_lines/count" get-lines-count to-str setprop pop
+      907 @
+      BEGIN
+        dup 908 @ <=
+      WHILE
+        dup to-str me "/.vie/temp/cur_ln" rot setprop pop
+        dup get-line-at
+        me swap "/.vie/temp/cur_text" swap setprop pop
+        
+        me "/.vie/temp/cur_ln" getprop to-int
+        0
+        me "/.vie/temp/cur_text" getprop strlen
+        0
+        me "/.vie/temp/cur_ln" getprop to-int
+        write-vis-line-entry
+        
+        1 +
+      REPEAT
+      pop
+    THEN
+    me "/.vie/vis_dirty" "0" setprop pop
+  THEN
+;
+
+// Translates physical cursor indices (Ln, Col) to terminal rendering offsets
+: get-vis-cursor
+  me "/.vie/wrap" getprop "true" strcmp 0 == IF
+    me "/.vie/cursor/y" getprop to-int 996 !
+    me "/.vie/cursor/x" getprop to-int 1 - 995 !
+    me "/.vie/vis_lines/count" getprop to-int 994 !
+    get-linenum-w 1 + to-str me "/.vie/temp/v_cx" rot setprop pop
+    "1" me "/.vie/temp/v_cy" rot setprop pop
+    
+    1
+    BEGIN
+      dup 994 @ <=
+    WHILE
+      dup read-vis-line-entry
+      990 ! 991 ! 992 ! 993 !
+      
+      993 @ 996 @ == IF
+        dup 994 @ < IF
+          dup 1 + read-vis-line-entry pop pop pop
+          996 @ == 0 ==
+        ELSE
+          1
+        THEN
+        
+        995 @ 992 @ >= IF
+          IF
+            995 @ 992 @ 991 @ + <=
+          ELSE
+            995 @ 992 @ 991 @ + <
+          THEN
+          IF
+            995 @ 992 @ - get-linenum-w + 1 + to-str me "/.vie/temp/v_cx" rot setprop pop
+            dup to-str me "/.vie/temp/v_cy" rot setprop pop
+            994 @ 1 +
+            swap pop
+          THEN
+        ELSE
+          pop
+        THEN
+      THEN
+      1 +
+    REPEAT
+    pop
+  ELSE
+    me "/.vie/cursor/x" getprop to-int
+    me "/.vie/scroll/x" getprop to-int -
+    get-linenum-w +
+    dup get-linenum-w 1 + < IF pop get-linenum-w 1 + THEN
+    to-str me "/.vie/temp/v_cx" rot setprop pop
+    me "/.vie/cursor/y" getprop me "/.vie/temp/v_cy" rot setprop pop
+  THEN
+;
+
+// Repositions visual cursor coordinate values
+: move-cursor-to-pos
+  get-vis-cursor
+  me "/.vie/temp/v_cy" getprop to-int
+  me "/.vie/scroll/y" getprop to-int -
+  me "/.vie/temp/v_cx" getprop to-int
+  term-move
+;
+
+// Adjust scroll limits when cursor exits visual viewport threshold boundaries
+: adjust-scroll
+  get-vis-cursor
+  me "/.vie/temp/v_cy" getprop to-int me "/.vie/scroll/y" getprop to-int -
+  dup 1 < IF
+    pop me "/.vie/temp/v_cy" getprop to-int 1 - dup 0 < IF pop 0 THEN to-str me "/.vie/scroll/y" rot setprop pop
+  ELSE
+    get-vh > IF
+      me "/.vie/temp/v_cy" getprop to-int get-vh - to-str me "/.vie/scroll/y" rot setprop pop
+    THEN
+  THEN
+  me "/.vie/scroll/x" getprop dup "" strcmp 0 == IF pop "0" THEN me "/.vie/scroll/x" rot setprop pop
+  me "/.vie/wrap" getprop "true" strcmp 0 == IF
+    "0" me "/.vie/scroll/x" rot setprop pop
+  ELSE
+    me "/.vie/cursor/x" getprop to-int me "/.vie/scroll/x" getprop to-int -
+    dup 1 < IF
+      pop me "/.vie/cursor/x" getprop to-int 1 - dup 0 < IF pop 0 THEN to-str me "/.vie/scroll/x" rot setprop pop
+    ELSE
+      get-tw > IF
+        me "/.vie/cursor/x" getprop to-int get-tw - to-str me "/.vie/scroll/x" rot setprop pop
+      THEN
+    THEN
+  THEN
+
+  me "/.vie/scroll/x" getprop me "/.vie/prev_scroll_x" getprop strcmp 0 == 0 ==
+  me "/.vie/scroll/y" getprop me "/.vie/prev_scroll_y" getprop strcmp 0 == 0 == +
+  IF
+    me "/.vie/scroll/x" getprop me "/.vie/prev_scroll_x" rot setprop pop
+    me "/.vie/scroll/y" getprop me "/.vie/prev_scroll_y" rot setprop pop
+    me "/.vie/vis_dirty" "1" setprop pop
+  THEN
+;
+
+// Clear screen buffer properties to force a full redraw on next frame
+: clear-screen-buffer
+  db-init
+;
+
+: get-separator-string
+  ""
+  BEGIN
+    dup strlen get-w <
+  WHILE
+    "-" +
+  REPEAT
+;
+
+: draw-separator-line
+  get-separator-string
+  get-th 1 - 1 0 db-set-string
+;
+
+// Create a rule struct helper
+: create-rule // ( pattern color -- rule )
+  struct-new
+  rot "pattern" struct-set-field
+  swap "color" struct-set-field
+;
+
+// Split string by delimiter returning right part and whether delimiter matched (stateless)
+: split-by-delim // ( line delim -- right matched? )
+  dup strlen 996 !
+  over strlen 999 !
+  over over str-split
+  swap 997 !
+  998 !
+  pop pop
+  997 @ strlen 998 @ strlen + 996 @ + 999 @ == IF
+    998 @ 1
+  ELSE
+    998 @ 0
+  THEN
+;
+
+: contains-close-comment? // ( str -- bool )
+  "*/" split-by-delim swap pop
+;
+
+: update-comment-state // ( state line -- new_state )
+  over 0 == IF
+    "/*" split-by-delim IF
+      swap pop 1 swap
+      update-comment-state
+    ELSE
+      pop
+    THEN
+  ELSE
+    "*/" split-by-delim IF
+      swap pop 0 swap
+      update-comment-state
+    ELSE
+      pop
+    THEN
+  THEN
+;
+
+: get-line-start-comment-state-cached // ( line_num -- state )
+  dup 1 <= IF
+    pop 0
+  ELSE
+    me "/.vie/comment_state/dirty_line" getprop to-int
+    dup 0 == IF pop 1 THEN
+    
+    over over <= IF
+      pop
+      "/.vie/comment_state/state/" swap to-str + me swap getprop to-int
+    ELSE
+      dup to-str "/.vie/comment_state/state/" swap + me swap getprop to-int
+      BEGIN
+        3 pick 3 pick >
+      WHILE
+        over get-line-at
+        update-comment-state
+        dup to-str
+        3 pick 1 + to-str "/.vie/comment_state/state/" swap +
+        me swap rot setprop pop
+        swap 1 + swap
+      REPEAT
+      2 pick to-str me "/.vie/comment_state/dirty_line" rot setprop pop
+      swap pop
+      swap pop
+    THEN
+  THEN
+;
+
+: reset-comment-state-cache
+  me "/.vie/temp/comment_state/last_line" "0" setprop pop
+  me "/.vie/temp/comment_state/last_state" "0" setprop pop
+;
+
+: invalidate-comment-state-cache // ( line_num -- )
+  me "/.vie/comment_state/dirty_line" getprop to-int
+  dup 0 == IF pop 999999 THEN
+  over over < IF
+    pop to-str me "/.vie/comment_state/dirty_line" rot setprop pop
+  ELSE
+    pop pop
+  THEN
+;
+
+// Parse property value from key=val; format
+: parse-rc-val // ( rc_str key_str default_val -- val )
+  swap
+  dup "=" +
+  swap pop
+  rot swap
+  str-split
+  swap pop
+  dup "" strcmp 0 == IF
+    pop
+  ELSE
+    swap pop
+    ";" str-split
+    pop
+    to-int
+  THEN
+;
+
+: get-syntax-rules // ( line_num -- rules )
+  to-str me "/.vie/temp/cur_syntax_line" rot setprop pop
+  struct-new
+  "(?i)(?<=^|\\s)(if|else|elseif|then|begin|while|repeat|lvar|var|to|struct|:|;)(?=$|\\s)" 920 @ create-rule "0" struct-set-field
+  "(?i)(?<=^|\\s)(dup|drop|swap|over|pop|rot|pick|@|!|strcmp|strlen|strcut|getprop|setprop|min|max|to-int|to-str|heap-!|heap-@)(?=$|\\s)" 921 @ create-rule "1" struct-set-field
+  "(?<=^|\\s)(\\+|\\-|\\*|/|==|<|>|<=|>=|!=)(?=$|\\s)" 922 @ create-rule "2" struct-set-field
+  "(?<=^|\\s)(-?[0-9]+)(?=$|\\s)" 923 @ create-rule "3" struct-set-field
+  "(\"[^\"]*\")" 924 @ create-rule "4" struct-set-field
+  "(?<=^|\\s)(//.*|\\\\(?=$|\\s).*|/\\*.*?\\*/|/\\*.*|.*?\\*/)" 925 @ create-rule "5" struct-set-field
+  
+  me "/.vie/search_query" getprop dup "" strcmp 0 == IF
+    pop
+    "(?!)" 10 create-rule "6" struct-set-field
+  ELSE
+    10 create-rule "6" struct-set-field
+  THEN
+
+  // Multi-line block comment coloring
+  me "/.vie/temp/cur_syntax_line" getprop to-int get-line-start-comment-state-cached IF
+    me "/.vie/temp/row_text" getprop contains-close-comment? 0 == IF
+      "^.*" 925 @ create-rule "7" struct-set-field
+    ELSE
+      "^.*?\\*/" 925 @ create-rule "7" struct-set-field
+    THEN
+  ELSE
+    "(?!)" 925 @ create-rule "7" struct-set-field
+  THEN
+;
+
+: get-original-char-idx // ( k -- doc_char_idx )
+  me "/.vie/wrap" getprop "true" strcmp 0 == IF
+    992 @ +
+  ELSE
+    me "/.vie/scroll/x" getprop to-int +
+  THEN
+;
+
+: draw-row
+  dup 971 ! // Store visual row in 971
+  dup me "/.vie/scroll/y" getprop to-int +
+  dup to-str me "/.vie/temp/draw_vis_y" rot setprop pop
+  
+  me "/.vie/vis_lines/count" getprop to-int over >= IF
+    me "/.vie/temp/draw_vis_y" getprop to-int read-vis-line-entry
+    990 ! 991 ! 992 ! 993 !
+    993 @ 990 @ format-linenum-wrap
+    me "/.vie/temp/row_prefix" rot setprop pop
+    
+    me "/.vie/temp/draw_vis_y" getprop to-int get-vis-line-text
+    me "/.vie/wrap" getprop "true" strcmp 0 == IF
+      clip-line
+    ELSE
+      slice-line
+    THEN
+    me "/.vie/temp/row_text" rot setprop pop
+    
+    show-linenums? IF
+      me "/.vie/temp/row_prefix" getprop
+      get-max-digits 1 + strcut
+      swap 971 @ 1 926 @ db-set-string
+      971 @ get-max-digits 2 + 927 @ db-set-string
+    THEN
+    
+    // Draw the colored row text cell-by-cell
+    me "/.vie/temp/row_text" getprop 993 @ get-syntax-rules regexp-colorize 700000 bytes-to-heap
+    
+    me "/.vie/temp/row_text" getprop strlen 970 !
+    me "/.vie/temp/row_text" getprop str-to-bytes 945 !
+    0
+    BEGIN
+      dup 970 @ <
+    WHILE
+      dup 972 !
+      945 @ 972 @ bytes-get
+      971 @
+      get-linenum-w 1 + 972 @ +
+      972 @ 700000 + heap-@
+      db-set-cell
+      1 +
+    REPEAT
+    pop
+    
+    get-linenum-w me "/.vie/temp/row_text" getprop strlen + 1 +
+    dup get-w swap -
+    dup 0 > IF
+      "                                                                                                                                                                                                                                                                                                                                                                                                                           "
+      swap strcut pop
+      swap
+      971 @
+      swap
+      0
+      db-set-string
+    ELSE
+      pop pop
+    THEN
+  ELSE
+    "~" 971 @ 1 6 db-set-string
+    get-w 1 -
+    dup 0 > IF
+      "                                                                                                                                                                                                                                                                                                                                                                                                                           "
+      swap strcut pop
+      971 @
+      2
+      0
+      db-set-string
+    ELSE
+      pop
+    THEN
+  THEN
+  pop pop
+;
+
+: check-settings-changed
+  me "/.vie/height" getprop me "/.vie/prev_height" getprop strcmp 0 == 0 ==
+  me "/.vie/width" getprop me "/.vie/prev_width" getprop strcmp 0 == 0 == +
+  me "/.vie/wrap" getprop me "/.vie/prev_wrap" getprop strcmp 0 == 0 == +
+  me "/.vie/linenumbers" getprop me "/.vie/prev_linenumbers" getprop strcmp 0 == 0 == +
+  me "/.vie/help_active" getprop me "/.vie/prev_help_active" getprop strcmp 0 == 0 == +
+  IF
+    me "/.vie/height" getprop me "/.vie/prev_height" rot setprop pop
+    me "/.vie/width" getprop me "/.vie/prev_width" rot setprop pop
+    me "/.vie/wrap" getprop me "/.vie/prev_wrap" rot setprop pop
+    me "/.vie/linenumbers" getprop me "/.vie/prev_linenumbers" rot setprop pop
+    me "/.vie/help_active" getprop me "/.vie/prev_help_active" rot setprop pop
+    1
+  ELSE
+    0
+  THEN
+;
+
+// Renders the visual line layout grid onto terminal
+: draw-editor
+  init-frame-cache
+  check-settings-changed IF
+    init-frame-cache
+    db-init
+    term-clear
+    me "/.vie/vis_dirty" "1" setprop pop
+  THEN
+  build-visual-lines
+  adjust-scroll
+  db-clear-next
+  reset-comment-state-cache
+  1
+  BEGIN
+    dup get-vh <=
+  WHILE
+    dup draw-row
+    1 +
+  REPEAT
+  pop
+  draw-separator-line
+  draw-status-line
+  db-flush
+  move-cursor-to-pos
+;
+
+// Returns vertical line index of cursor (1-indexed)
+: get-cy
+  me "/.vie/cursor/y" getprop to-int
+;
+// Returns horizontal column index of cursor (1-indexed)
+: get-cx
+  me "/.vie/cursor/x" getprop to-int
+;
+// Updates physical cursor column index in player properties
+: set-cx
+  to-str me "/.vie/cursor/x" rot setprop pop
+;
+// Updates physical cursor row line index in player properties
+: set-cy
+  to-str me "/.vie/cursor/y" rot setprop pop
+;
+// Gets text content of currently selected line row
+: get-curr-line
+  me "/.vie/cursor/y" getprop to-int get-line-at
+;
+// Updates text content of currently selected row (aborts if help screen is active)
+: set-curr-line
+  is-help-active IF
+    pop
+  ELSE
+    me "/.vie/lines/" me "/.vie/cursor/y" getprop + rot setprop pop
+    me "/.vie/cursor/y" getprop to-int 1 + invalidate-comment-state-cache
+  THEN
+;
+// Shifts all trailing line slots downward to open space for newline
+: shift-lines-down
+  dup invalidate-comment-state-cache
+  to-str me "/.vie/temp/shift_target" rot setprop pop
+  me "/.vie/lines/count" getprop to-int to-str me "/.vie/temp/shift_idx" rot setprop pop
+  BEGIN
+    me "/.vie/temp/shift_idx" getprop to-int
+    me "/.vie/temp/shift_target" getprop to-int
+    >=
+  WHILE
+    me "/.vie/lines/" me "/.vie/temp/shift_idx" getprop + getprop
+    me "/.vie/lines/" me "/.vie/temp/shift_idx" getprop to-int 1 + to-str +
+    rot setprop pop
+    me "/.vie/temp/shift_idx" getprop to-int 1 - to-str
+    me "/.vie/temp/shift_idx" rot setprop pop
+  REPEAT
+  me "/.vie/lines/count" getprop to-int 1 + to-str me "/.vie/lines/count" rot setprop pop
+  init-frame-cache
+;
+// Shifts all trailing line slots upward to delete a line slot
+: shift-lines-up
+  dup invalidate-comment-state-cache
+  to-str me "/.vie/temp/shift_target" rot setprop pop
+  me "/.vie/temp/shift_target" getprop to-int to-str me "/.vie/temp/shift_idx" rot setprop pop
+  BEGIN
+    me "/.vie/temp/shift_idx" getprop to-int
+    me "/.vie/lines/count" getprop to-int
+    <
+  WHILE
+    me "/.vie/lines/" me "/.vie/temp/shift_idx" getprop to-int 1 + to-str + getprop
+    me "/.vie/lines/" me "/.vie/temp/shift_idx" getprop +
+    rot setprop pop
+    me "/.vie/temp/shift_idx" getprop to-int 1 + to-str
+    me "/.vie/temp/shift_idx" rot setprop pop
+  REPEAT
+  me "/.vie/lines/count" getprop to-int 1 - to-str me "/.vie/lines/count" rot setprop pop
+  init-frame-cache
+;
+// Concatenates document buffer lines and stores them back to OOF database property
+: save-lines
+  join-editor-lines
+  me "/.vie/target/ref" getprop to-int dbref swap
+  me "/.vie/target/key" getprop swap
+  setprop pop
+;
+// Inserts single character key value at current physical position index
+: insert-char-at-cursor
+  get-curr-line
+  get-cx 1 - strcut
+  rot swap
+  + +
+  set-curr-line
+  get-cx 1 + set-cx
+  me "/.vie/vis_dirty" "1" setprop pop
+;
+// Backspace input handler at current cursor index
+: backspace-at-cursor
+  get-cx 1 > IF
+    get-curr-line get-cx 2 - strcut
+    1 strcut swap pop
+    + set-curr-line
+    get-cx 1 - set-cx
+  ELSE
+    get-cy 1 > IF
+      me "/.vie/lines/" get-cy 1 - to-str + getprop
+      dup strlen 1 + to-str me "/.vie/temp/merge_x" rot setprop pop
+      get-curr-line +
+      me "/.vie/lines/" get-cy 1 - to-str + rot setprop pop
+      get-cy shift-lines-up
+      get-cy 1 - set-cy
+      me "/.vie/temp/merge_x" getprop to-int set-cx
+    THEN
+  THEN
+  me "/.vie/vis_dirty" "1" setprop pop
+;
+// Newline Enter key input handler (splits line at cursor)
+: enter-at-cursor
+  get-curr-line get-cx 1 - strcut
+  swap set-curr-line
+  get-cy 1 + shift-lines-down
+  me "/.vie/lines/" get-cy 1 + to-str + rot setprop pop
+  get-cy 1 + set-cy
+  1 set-cx
+  me "/.vie/vis_dirty" "1" setprop pop
+;
+// Delete key input handler (deletes character directly under cursor)
+: delete-char-at-cursor
+  get-curr-line strlen 0 > IF
+    get-cx get-curr-line strlen <= IF
+      get-curr-line get-cx 1 - strcut
+      1 strcut swap pop
+      + set-curr-line
+    THEN
+  THEN
+  me "/.vie/vis_dirty" "1" setprop pop
+;
+// Helper to move cursor by a visual row delta (handles wrapped lines navigation)
+: move-vis-row
+  to-str me "/.vie/temp/move_offset" rot setprop pop
+  get-vis-cursor
+  me "/.vie/temp/v_cy" getprop to-int
+  me "/.vie/temp/move_offset" getprop to-int +
+  dup 1 < IF
+    pop 1
+  ELSE
+    dup me "/.vie/vis_lines/count" getprop to-int > IF
+      pop me "/.vie/vis_lines/count" getprop to-int
+    THEN
+  THEN
+  dup to-str me "/.vie/temp/target_v_cy" rot setprop pop
+  
+  dup read-vis-line-entry
+  990 ! 991 ! 992 ! 993 !
+  993 @ 992 @
+  
+  dup to-str me "/.vie/temp/target_offset" rot setprop pop
+  swap
+  dup to-str me "/.vie/temp/target_ln" rot setprop pop
+  
+  dup set-cy
+  
+  me "/.vie/temp/v_cx" getprop to-int
+  me "/.vie/scroll/x" getprop to-int +
+  get-linenum-w -
+  rot +
+  
+  over get-line-at strlen 1 + min
+  dup 1 < IF pop 1 THEN
+  set-cx
+  pop pop
+;
+
+// Get character at index
+: get-char-at // ( str idx -- char_str )
+  strcut swap pop 1 strcut pop
+;
+
+: match-at? // ( line_text search_query idx -- bool )
+  959 ! // idx
+  958 ! // query
+  957 ! // line_text
+  
+  957 @ 959 @ strcut swap pop // right_part
+  958 @ strlen strcut pop // prefix_of_right
+  958 @ strcmp 0 ==
+;
+
+: find-char // ( str char -- index )
+  963 ! // target char
+  dup strlen 964 !
+  -1 // result index
+  0
+  BEGIN
+    dup 964 @ <
+  WHILE
+    3 pick over get-char-at 963 @ strcmp 0 == IF
+      swap pop dup swap // set result index
+      964 @ // exit loop
+    THEN
+    1 +
+  REPEAT
+  pop swap pop
+;
+
+: find-in-line // ( line_text query start_col -- match_col_1indexed )
+  965 ! // start_col
+  966 ! // query
+  dup 969 ! // line_text
+  strlen 967 ! // line length
+  966 @ strlen 968 ! // query length
+  
+  968 @ 0 == IF
+    -1
+  ELSE
+    -1 // match index
+    965 @
+    BEGIN
+      dup 967 @ 968 @ - <=
+    WHILE
+      969 @ 966 @ 3 pick match-at? IF
+        swap pop dup 1 + swap // Put match_col_1indexed on stack
+        967 @ // terminate loop
+      THEN
+      1 +
+    REPEAT
+    pop
+  THEN
+;
+
+: find-in-line-backward // ( line_text query start_col_exclusive -- match_col_1indexed )
+  965 ! // start_col_exclusive (0-indexed)
+  966 ! // query
+  dup 969 ! // line_text
+  strlen 967 ! // line length
+  966 @ strlen 968 ! // query length
+  
+  968 @ 0 == IF
+    -1
+  ELSE
+    -1 // match index
+    965 @ 1 -
+    dup 967 @ 968 @ - min
+    BEGIN
+      dup 0 >=
+    WHILE
+      969 @ 966 @ 3 pick match-at? IF
+        swap pop dup 1 + swap
+        -1 // terminate loop
+      THEN
+      1 -
+    REPEAT
+    pop
+  THEN
+;
+
+: do-search-forward // ( query -- )
+  dup me "/.vie/search_query" rot setprop pop
+  me "/.vie/search_query" getprop
+  dup "" strcmp 0 == IF
+    pop
+  ELSE
+    972 ! // query
+    get-cy 973 ! // current cy
+    get-cx 974 ! // current cx
+    
+    -1 975 ! // found cy
+    -1 976 ! // found cx
+    
+    // 1. Search in current line starting at cx
+    973 @ get-line-at 972 @ 974 @ find-in-line dup -1 > IF
+      976 ! 973 @ 975 !
+    ELSE
+      pop
+    THEN
+    
+    // 2. Search in subsequent lines
+    975 @ -1 == IF
+      973 @ 1 +
+      BEGIN
+        dup get-lines-count <=
+        975 @ -1 == *
+      WHILE
+        dup get-line-at 972 @ 0 find-in-line dup -1 > IF
+          976 ! dup 975 !
+        ELSE
+          pop
+        THEN
+        1 +
+      REPEAT
+      pop
+    THEN
+    
+    // 3. Wrap around: search from line 1 to current line - 1
+    975 @ -1 == IF
+      1
+      BEGIN
+        dup 973 @ <
+        975 @ -1 == *
+      WHILE
+        dup get-line-at 972 @ 0 find-in-line dup -1 > IF
+          976 ! dup 975 !
+        ELSE
+          pop
+        THEN
+        1 +
+      REPEAT
+      pop
+    THEN
+    
+    // 4. Wrap around inside current line before cx
+    975 @ -1 == IF
+      973 @ get-line-at 972 @ 0 find-in-line dup -1 > IF
+        dup 974 @ < IF
+          976 ! 973 @ 975 !
+        ELSE
+          pop
+        THEN
+      ELSE
+        pop
+      THEN
+    THEN
+    
+    // If found, move cursor and clear message
+    975 @ -1 > IF
+      975 @ set-cy
+      976 @ set-cx
+      me "/.vie/vis_dirty" "1" setprop pop
+      me "/.vie/msg" "" setprop pop
+    ELSE
+      "Pattern not found: " 972 @ + me "/.vie/msg" rot setprop pop
+    THEN
+  THEN
+;
+
+: do-search-backward // ( query -- )
+  dup me "/.vie/search_query" rot setprop pop
+  me "/.vie/search_query" getprop
+  dup "" strcmp 0 == IF
+    pop
+  ELSE
+    972 ! // query
+    get-cy 973 !
+    get-cx 974 !
+    
+    -1 975 ! // found cy
+    -1 976 ! // found cx
+    
+    // 1. Search in current line before cx
+    973 @ get-line-at 972 @ 974 @ 1 - find-in-line-backward dup -1 > IF
+      976 ! 973 @ 975 !
+    ELSE
+      pop
+    THEN
+    
+    // 2. Search in prior lines going up
+    975 @ -1 == IF
+      973 @ 1 -
+      BEGIN
+        dup 1 >=
+        975 @ -1 == *
+      WHILE
+        dup get-line-at 972 @ over strlen find-in-line-backward dup -1 > IF
+          976 ! dup 975 !
+        ELSE
+          pop
+        THEN
+        1 -
+      REPEAT
+      pop
+    THEN
+    
+    // 3. Wrap around: search from bottom to current line + 1
+    975 @ -1 == IF
+      get-lines-count
+      BEGIN
+        dup 973 @ >
+        975 @ -1 == *
+      WHILE
+        dup get-line-at 972 @ over strlen find-in-line-backward dup -1 > IF
+          976 ! dup 975 !
+        ELSE
+          pop
+        THEN
+        1 -
+      REPEAT
+      pop
+    THEN
+    
+    // 4. Wrap around inside current line after cx
+    975 @ -1 == IF
+      973 @ get-line-at 972 @ over strlen find-in-line-backward dup -1 > IF
+        dup 974 @ >= IF
+          976 ! 973 @ 975 !
+        ELSE
+          pop
+        THEN
+      ELSE
+        pop
+      THEN
+    THEN
+    
+    // If found, move cursor and clear message
+    975 @ -1 > IF
+      975 @ set-cy
+      976 @ set-cx
+      me "/.vie/vis_dirty" "1" setprop pop
+      me "/.vie/msg" "" setprop pop
+    ELSE
+      "Pattern not found: " 972 @ + me "/.vie/msg" rot setprop pop
+    THEN
+  THEN
+;
+
+: replace-in-string // ( original find_str replace_str global_flag -- new_str replaced_count )
+  983 ! // global_flag
+  984 ! // replace_str
+  985 ! // find_str
+  
+  985 @ strlen 0 == IF
+    0 // replaced count = 0
+  ELSE
+    "" swap // stack: new_str original
+    0 986 ! // replaced_count = 0
+    BEGIN
+      dup strlen 0 >
+    WHILE
+      dup 985 @ 0 match-at? IF
+        rot 984 @ + swap
+        985 @ strlen strcut swap pop
+        986 @ 1 + 986 !
+        983 @ 0 == IF
+          +
+          ""
+        THEN
+      ELSE
+        1 strcut
+        rot rot + swap
+      THEN
+    REPEAT
+    pop
+    986 @
+  THEN
+;
+
+: do-substitution
+  0 987 ! // total replaced count
+  
+  977 @ 1 == IF
+    1
+    BEGIN
+      dup get-lines-count <=
+    WHILE
+      dup get-line-at 979 @ 980 @ 982 @ replace-in-string
+      dup 0 > IF
+        987 @ + 987 !
+        me "/.vie/lines/" 3 pick to-str + rot setprop pop
+        dup 1 + invalidate-comment-state-cache
+      ELSE
+        pop pop
+      THEN
+      1 +
+    REPEAT
+    pop
+  ELSE
+    get-curr-line 979 @ 980 @ 982 @ replace-in-string
+    dup 0 > IF
+      987 @ + 987 !
+      set-curr-line
+    ELSE
+      pop pop
+    THEN
+  THEN
+  
+  987 @ 0 > IF
+    me "/.vie/vis_dirty" "1" setprop pop
+    "Replaced " 987 @ to-str + " occurrence(s)." + me "/.vie/msg" rot setprop pop
+  ELSE
+    me "/.vie/msg" "No occurrences replaced." setprop pop
+  THEN
+;
+
+: handle-substitution-cmd // ( cmd_buf -- handled_flag )
+  dup 3 strcut pop "%s/" strcmp 0 == IF
+    1 977 !
+    3 strcut swap pop
+    1 // handled = 1
+  ELSE
+    dup 2 strcut pop "s/" strcmp 0 == IF
+      0 977 !
+      2 strcut swap pop
+      1 // handled = 1
+    ELSE
+      pop 0 // handled = 0
+    THEN
+  THEN
+  
+  dup 1 == IF
+    pop // pop handled flag
+    dup "/" find-char 978 !
+    978 @ -1 == IF
+      pop me "/.vie/msg" "Invalid substitution syntax" setprop pop
+    ELSE
+      978 @ strcut
+      979 !
+      1 strcut swap pop
+      
+      dup "/" find-char 978 !
+      978 @ -1 == IF
+        980 !
+        "" 981 !
+      ELSE
+        978 @ strcut
+        980 !
+        1 strcut swap pop 981 !
+      THEN
+      
+      981 @ "g" strcmp 0 == IF 1 ELSE 0 THEN 982 !
+      
+      do-substitution
+    THEN
+    1 // return 1
+  ELSE
+    // return 0
+  THEN
+;
+
+// Normal keyboard command router mode handler (Vi-style mappings)
+: handle-normal-mode
+  dup 100 == 0 == IF
+    me "/.vie/pending_d" "0" setprop pop
+  THEN
+  
+  is-help-active IF
+    dup 105 == over 97 == + over 65 == + over 120 == + over 111 == + over 79 == + over 100 == + IF
+      me "/.vie/msg" "Cannot edit help documentation. Press ESC to return." setprop pop
+      pop 0
+    ELSE
+      dup 27 == IF
+        0 me "/.vie/help_active" rot to-str setprop pop
+        me "/.vie/help/saved/x" getprop set-cx
+        me "/.vie/help/saved/y" getprop set-cy
+        me "/.vie/help/saved/scroll_x" getprop me "/.vie/scroll/x" rot setprop pop
+        me "/.vie/help/saved/scroll_y" getprop me "/.vie/scroll/y" rot setprop pop
+        pop 0
+      ELSE
+        dup 58 == IF
+          2 me "/.vie/mode" rot to-str setprop pop
+          me "/.vie/cmd_buf" "" setprop pop
+        ELSE
+        dup 104 == IF
+          get-cx 1 - dup 1 < IF
+            pop
+            get-cy 1 > IF
+              get-cy 1 - set-cy
+              get-curr-line strlen 1 + set-cx
+            ELSE
+              1 set-cx
+            THEN
+          ELSE
+            set-cx
+          THEN
+        ELSE
+        dup 108 == IF
+          get-cx 1 + dup get-curr-line strlen 1 + > IF
+            pop
+            get-cy get-lines-count < IF
+              get-cy 1 + set-cy
+              1 set-cx
+            ELSE
+              get-curr-line strlen 1 + set-cx
+            THEN
+          ELSE
+            set-cx
+          THEN
+        ELSE
+        dup 107 == IF
+          pop -1 move-vis-row 0
+        ELSE
+        dup 106 == IF
+          pop 1 move-vis-row 0
+        ELSE
+        dup 36 == IF
+          get-curr-line strlen 1 + set-cx
+        ELSE
+        dup 48 == IF
+          1 set-cx
+        THEN THEN THEN THEN THEN THEN THEN
+        pop 0
+      THEN
+    THEN
+  ELSE
+    dup 27 == IF
+      me "/.vie/msg" "" setprop pop
+      pop 0
+    ELSE
+    dup 12 == IF
+      pop
+      db-init
+      term-clear
+      me "/.vie/vis_dirty" "1" setprop pop
+      0
+    ELSE
+    dup 105 == IF
+      1 me "/.vie/mode" rot to-str setprop pop
+    ELSE
+    dup 97 == IF
+      get-cx 1 + dup get-curr-line strlen 1 + > IF pop get-curr-line strlen 1 + THEN set-cx
+      me "/.vie/mode" "1" setprop pop
+    ELSE
+    dup 65 == IF
+      get-curr-line strlen 1 + set-cx
+      me "/.vie/mode" "1" setprop pop
+    ELSE
+    dup 58 == IF
+      2 me "/.vie/mode" rot to-str setprop pop
+      me "/.vie/cmd_buf" "" setprop pop
+    ELSE
+    dup 47 == IF
+      2 me "/.vie/mode" rot to-str setprop pop
+      me "/.vie/cmd_buf" "/" setprop pop
+    ELSE
+    dup 110 == IF
+      pop
+      me "/.vie/search_query" getprop dup "" strcmp 0 == IF
+        pop me "/.vie/msg" "No previous search pattern" setprop pop
+      ELSE
+        do-search-forward
+      THEN
+      0
+    ELSE
+    dup 78 == IF
+      pop
+      me "/.vie/search_query" getprop dup "" strcmp 0 == IF
+        pop me "/.vie/msg" "No previous search pattern" setprop pop
+      ELSE
+        do-search-backward
+      THEN
+      0
+    ELSE
+    dup 104 == IF
+      get-cx 1 - dup 1 < IF
+        pop
+        get-cy 1 > IF
+          get-cy 1 - set-cy
+          get-curr-line strlen 1 + set-cx
+        ELSE
+          1 set-cx
+        THEN
+      ELSE
+        set-cx
+      THEN
+    ELSE
+    dup 108 == IF
+      get-cx 1 + dup get-curr-line strlen 1 + > IF
+        pop
+        get-cy get-lines-count < IF
+          get-cy 1 + set-cy
+          1 set-cx
+        ELSE
+          get-curr-line strlen 1 + set-cx
+        THEN
+      ELSE
+        set-cx
+      THEN
+    ELSE
+    dup 107 == IF
+      pop -1 move-vis-row 0
+    ELSE
+    dup 106 == IF
+      pop 1 move-vis-row 0
+    ELSE
+    dup 120 == IF
+      delete-char-at-cursor
+    ELSE
+    dup 111 == IF
+      get-cy 1 + shift-lines-down
+      me "/.vie/lines/" get-cy 1 + to-str + "" setprop pop
+      get-cy 1 + set-cy
+      1 set-cx
+      1 me "/.vie/mode" rot to-str setprop pop
+      me "/.vie/vis_dirty" "1" setprop pop
+    ELSE
+    dup 79 == IF
+      get-cy shift-lines-down
+      me "/.vie/lines/" get-cy to-str + "" setprop pop
+      1 set-cx
+      1 me "/.vie/mode" rot to-str setprop pop
+      me "/.vie/vis_dirty" "1" setprop pop
+    ELSE
+    dup 36 == IF
+      get-curr-line strlen 1 + set-cx
+    ELSE
+    dup 48 == IF
+      1 set-cx
+    ELSE
+    dup 100 == IF
+      me "/.vie/pending_d" getprop "1" strcmp 0 == IF
+        me "/.vie/lines/count" getprop to-int 1 <= IF
+          "" set-curr-line
+          1 set-cx
+        ELSE
+          get-cy shift-lines-up
+          get-cy me "/.vie/lines/count" getprop to-int > IF
+            me "/.vie/lines/count" getprop to-int set-cy
+          THEN
+          1 set-cx
+        THEN
+        me "/.vie/pending_d" "0" setprop pop
+        me "/.vie/vis_dirty" "1" setprop pop
+      ELSE
+        me "/.vie/pending_d" "1" setprop pop
+      THEN
+    THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+    pop 0
+    THEN
+  THEN
+;
+// Keyboard insert character modal loop router
+: handle-insert-mode
+  dup 27 == IF
+    0 me "/.vie/mode" rot to-str setprop pop
+    get-cx get-curr-line strlen min dup 1 < IF pop 1 THEN set-cx
+    swap pop
+  ELSE
+  dup 12 == IF
+    pop
+    db-init
+    term-clear
+    me "/.vie/vis_dirty" "1" setprop pop
+    swap pop
+  ELSE
+  dup 127 == over 8 == + IF
+    backspace-at-cursor
+    swap pop
+  ELSE
+  dup 13 == over 10 == + IF
+    enter-at-cursor
+    swap pop
+  ELSE
+    swap
+    insert-char-at-cursor
+  THEN THEN THEN THEN
+;
+// Commands mode interpreter loop router (:w, :q, :wq, :help, :compile, :setexec, :setdebug)
+: handle-command-mode
+  dup 27 == IF
+    0 me "/.vie/mode" rot to-str setprop pop
+    me "/.vie/cmd_buf" "" setprop pop
+    swap pop
+  ELSE
+  dup 127 == over 8 == + IF
+    me "/.vie/cmd_buf" getprop dup strlen 0 > IF
+      dup strlen 1 - strcut pop me "/.vie/cmd_buf" rot setprop pop
+    ELSE
+      pop
+      0 me "/.vie/mode" rot to-str setprop pop
+    THEN
+    swap pop
+  ELSE
+  dup 13 == over 10 == + IF
+    swap pop pop
+    me "/.vie/cmd_buf" getprop
+    dup 1 strcut
+    swap "/" strcmp 0 == IF
+      swap pop
+      do-search-forward
+      0 me "/.vie/mode" rot to-str setprop pop
+    ELSE
+      pop
+      dup handle-substitution-cmd IF
+        pop
+        0 me "/.vie/mode" rot to-str setprop pop
+      ELSE
+        dup "w" strcmp 0 == IF
+          is-help-active IF
+            me "/.vie/msg" "Cannot save help documentation." setprop pop
+          ELSE
+            save-lines
+            me "/.vie/msg" "Property saved successfully." setprop pop
+          THEN
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+        dup "q" strcmp 0 == over "q!" strcmp 0 == + IF
+          descr 0 #0 "" conn-raw-mode pop
+          term-clear
+          descr "System> Exited visual editor. Welcome back!\n" notify-conn
+          me "/.vie/active" "0" setprop pop
+          heap-free
+          me "/.vie/heap_data" "" setprop pop
+        ELSE
+        dup "wq" strcmp 0 == IF
+          is-help-active IF
+            me "/.vie/msg" "Cannot save help documentation." setprop pop
+            0 me "/.vie/mode" rot to-str setprop pop
+          ELSE
+            save-lines
+            descr 0 #0 "" conn-raw-mode pop
+            term-clear
+            descr "System> Property saved and exited. Welcome back!\n" notify-conn
+            me "/.vie/active" "0" setprop pop
+            heap-free
+            me "/.vie/heap_data" "" setprop pop
+          THEN
+        ELSE
+        dup "help" strcmp 0 == IF
+          1 me "/.vie/help_active" rot to-str setprop pop
+          me "/.vie/cursor/x" getprop me "/.vie/help/saved/x" rot setprop pop
+          me "/.vie/cursor/y" getprop me "/.vie/help/saved/y" rot setprop pop
+          me "/.vie/scroll/x" getprop me "/.vie/help/saved/scroll_x" rot setprop pop
+          me "/.vie/scroll/y" getprop me "/.vie/help/saved/scroll_y" rot setprop pop
+          1 set-cx
+          1 set-cy
+          "0" me "/.vie/scroll/x" rot setprop pop
+          "0" me "/.vie/scroll/y" rot setprop pop
+          me "/.vie/msg" "" setprop pop
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+        dup "compile" strcmp 0 == IF
+          is-help-active IF
+            me "/.vie/msg" "Cannot compile help documentation." setprop pop
+          ELSE
+            save-lines
+            me "/.vie/target/ref" getprop to-int dbref me "/.vie/target/key" getprop compile-script IF
+              me "/.vie/msg" "Property compiled successfully." setprop pop
+            ELSE
+              me "/.vie/msg" "Compilation failed! Check compiler logs." setprop pop
+            THEN
+          THEN
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+        dup "run" strcmp 0 == IF
+          is-help-active IF
+            me "/.vie/msg" "Cannot run help documentation." setprop pop
+          ELSE
+            save-lines
+            me "/.vie/target/ref" getprop to-int dbref
+            me "/.vie/target/key" getprop
+            over over compile-script IF
+              "" run-script IF
+                me "/.vie/msg" "Script compiled and executed." setprop pop
+              ELSE
+                me "/.vie/msg" "Execution completed or returned failure." setprop pop
+              THEN
+            ELSE
+              pop pop
+              me "/.vie/msg" "Compilation failed! Check compiler logs." setprop pop
+            THEN
+          THEN
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+        dup 4 strcut swap "run " strcmp 0 == IF
+          is-help-active IF
+            pop me "/.vie/msg" "Cannot run help documentation." setprop pop
+          ELSE
+            save-lines
+            me "/.vie/target/ref" getprop to-int dbref
+            me "/.vie/target/key" getprop
+            over over compile-script IF
+              rot run-script IF
+                me "/.vie/msg" "Script compiled and executed." setprop pop
+              ELSE
+                me "/.vie/msg" "Execution completed or returned failure." setprop pop
+              THEN
+            ELSE
+              pop pop pop
+              me "/.vie/msg" "Compilation failed! Check compiler logs." setprop pop
+            THEN
+          THEN
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+          pop
+          dup 7 strcut swap "setexec" strcmp 0 == IF
+          is-help-active IF
+            pop me "/.vie/msg" "Cannot set flag on help documentation." setprop pop
+          ELSE
+            dup " 0" strcmp 0 == over " false" strcmp 0 == + IF
+              0
+            ELSE
+              1
+            THEN
+            swap pop
+            me "/.vie/target/ref" getprop to-int dbref me "/.vie/target/key" getprop set-exec-flag IF
+              me "/.vie/msg" "Executable flag updated." setprop pop
+            ELSE
+              me "/.vie/msg" "Failed to update executable flag." setprop pop
+            THEN
+          THEN
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+          pop
+          dup 8 strcut swap "setdebug" strcmp 0 == IF
+          is-help-active IF
+            pop me "/.vie/msg" "Cannot set flag on help documentation." setprop pop
+          ELSE
+            dup " 0" strcmp 0 == over " false" strcmp 0 == + IF
+              0
+            ELSE
+              1
+            THEN
+            swap pop
+            me "/.vie/target/ref" getprop to-int dbref me "/.vie/target/key" getprop set-debug-flag IF
+              me "/.vie/msg" "Debug flag updated." setprop pop
+            ELSE
+              me "/.vie/msg" "Failed to update debug flag." setprop pop
+            THEN
+          THEN
+          0 me "/.vie/mode" rot to-str setprop pop
+        ELSE
+          pop
+          dup 11 strcut
+          swap
+          "set height=" strcmp 0 == IF
+            swap pop
+            dup to-int dup 5 >= IF
+              to-str me "/.vie/height" rot setprop pop
+              me "/.vie/msg" "Height updated successfully." setprop pop
+              me "/.vie/vis_dirty" "1" setprop pop
+            ELSE
+              pop
+              me "/.vie/msg" "Invalid height. Minimum height is 5." setprop pop
+            THEN
+            0 me "/.vie/mode" rot to-str setprop pop
+          ELSE
+            pop
+            dup 10 strcut
+            swap
+            "set width=" strcmp 0 == IF
+              swap pop
+              dup to-int dup 20 >= IF
+                to-str me "/.vie/width" rot setprop pop
+                me "/.vie/msg" "Width updated successfully." setprop pop
+                me "/.vie/vis_dirty" "1" setprop pop
+              ELSE
+                pop
+                me "/.vie/msg" "Invalid width. Minimum width is 20." setprop pop
+              THEN
+              0 me "/.vie/mode" rot to-str setprop pop
+            ELSE
+              pop
+              dup 9 strcut
+              swap
+              "set wrap=" strcmp 0 == IF
+                swap pop
+                dup "true" strcmp 0 == over "false" strcmp 0 == + IF
+                  dup me "/.vie/wrap" rot setprop pop
+                  me "/.vie/msg" "Wrap mode updated." setprop pop
+                  me "/.vie/vis_dirty" "1" setprop pop
+                ELSE
+                  pop
+                  me "/.vie/msg" "Invalid wrap value. Use true or false." setprop pop
+                THEN
+                0 me "/.vie/mode" rot to-str setprop pop
+              ELSE
+                pop
+                dup 5 strcut
+                swap
+                "wrap=" strcmp 0 == IF
+                  swap pop
+                  dup "true" strcmp 0 == over "false" strcmp 0 == + IF
+                    dup me "/.vie/wrap" rot setprop pop
+                    me "/.vie/msg" "Wrap mode updated." setprop pop
+                    me "/.vie/vis_dirty" "1" setprop pop
+                  ELSE
+                    pop
+                    me "/.vie/msg" "Invalid wrap value. Use true or false." setprop pop
+                  THEN
+                  0 me "/.vie/mode" rot to-str setprop pop
+                ELSE
+                  pop
+                  dup 16 strcut
+                  swap
+                  "set linenumbers=" strcmp 0 == IF
+                    swap pop
+                    dup "true" strcmp 0 == over "false" strcmp 0 == + IF
+                      dup me "/.vie/linenumbers" rot setprop pop
+                      me "/.vie/msg" "Line numbers mode updated." setprop pop
+                      me "/.vie/vis_dirty" "1" setprop pop
+                    ELSE
+                      pop
+                      me "/.vie/msg" "Invalid linenumbers value. Use true or false." setprop pop
+                    THEN
+                    0 me "/.vie/mode" rot to-str setprop pop
+                  ELSE
+                    pop
+                    dup 12 strcut
+                    swap
+                    "linenumbers=" strcmp 0 == IF
+                      swap pop
+                      dup "true" strcmp 0 == over "false" strcmp 0 == + IF
+                        dup me "/.vie/linenumbers" rot setprop pop
+                        me "/.vie/msg" "Line numbers mode updated." setprop pop
+                        me "/.vie/vis_dirty" "1" setprop pop
+                      ELSE
+                        pop
+                        me "/.vie/msg" "Invalid linenumbers value. Use true or false." setprop pop
+                      THEN
+                      0 me "/.vie/mode" rot to-str setprop pop
+                    ELSE
+                      pop
+                      dup 7 strcut
+                      swap
+                      "set ln=" strcmp 0 == IF
+                        swap pop
+                        dup "true" strcmp 0 == over "false" strcmp 0 == + IF
+                          dup me "/.vie/linenumbers" rot setprop pop
+                          me "/.vie/msg" "Line numbers mode updated." setprop pop
+                          me "/.vie/vis_dirty" "1" setprop pop
+                        ELSE
+                          pop
+                          me "/.vie/msg" "Invalid linenumbers value. Use true or false." setprop pop
+                        THEN
+                        0 me "/.vie/mode" rot to-str setprop pop
+                      ELSE
+                        pop
+                        dup 3 strcut
+                        swap
+                        "ln=" strcmp 0 == IF
+                          swap pop
+                          dup "true" strcmp 0 == over "false" strcmp 0 == + IF
+                            dup me "/.vie/linenumbers" rot setprop pop
+                            me "/.vie/msg" "Line numbers mode updated." setprop pop
+                            me "/.vie/vis_dirty" "1" setprop pop
+                          ELSE
+                            pop
+                            me "/.vie/msg" "Invalid linenumbers value. Use true or false." setprop pop
+                          THEN
+                          0 me "/.vie/mode" rot to-str setprop pop
+                        ELSE
+                          pop
+                          dup strlen 2 - dup 0 > IF
+                            strcut
+                            dup "sh" strcmp 0 == IF
+                              pop
+                              dup to-int dup 5 >= IF
+                                to-str me "/.vie/height" rot setprop pop
+                                me "/.vie/msg" "Height updated successfully." setprop pop
+                                me "/.vie/vis_dirty" "1" setprop pop
+                              ELSE
+                                pop
+                                me "/.vie/msg" "Invalid height. Minimum height is 5." setprop pop
+                              THEN
+                              0 me "/.vie/mode" rot to-str setprop pop
+                            ELSE
+                            dup "sw" strcmp 0 == IF
+                              pop
+                              dup to-int dup 20 >= IF
+                                to-str me "/.vie/width" rot setprop pop
+                                me "/.vie/msg" "Width updated successfully." setprop pop
+                                me "/.vie/vis_dirty" "1" setprop pop
+                              ELSE
+                                pop
+                                me "/.vie/msg" "Invalid width. Minimum width is 20." setprop pop
+                              THEN
+                              0 me "/.vie/mode" rot to-str setprop pop
+                            ELSE
+                              +
+                              dup "Unrecognized command: :" swap + me "/.vie/msg" rot setprop pop
+                              0 me "/.vie/mode" rot to-str setprop pop
+                            THEN THEN
+                          ELSE
+                            pop
+                            dup "Unrecognized command: :" swap + me "/.vie/msg" rot setprop pop
+                            0 me "/.vie/mode" rot to-str setprop pop
+                          THEN
+                        THEN
+                      THEN
+                    THEN
+                  THEN
+                THEN
+              THEN
+            THEN
+          THEN
+        THEN
+      THEN
+    THEN THEN THEN THEN THEN THEN THEN THEN THEN
+    pop
+    13
+  ELSE
+    swap
+    me "/.vie/cmd_buf" getprop swap + me "/.vie/cmd_buf" rot setprop pop
+  THEN THEN THEN
+;
+// Scroll one whole page upward visual viewport logic
+: handle-page-up
+  get-vis-cursor
+  me "/.vie/scroll/y" getprop to-int get-vh - 995 !
+  995 @ 0 < IF 0 995 ! THEN
+  995 @ to-str me "/.vie/scroll/y" rot setprop pop
+  
+  me "/.vie/scroll/y" getprop to-int 1 +
+  read-vis-line-entry
+  990 ! 991 ! 992 ! 993 !
+  993 @ 1 < IF 1 993 ! THEN
+  993 @ get-lines-count > IF get-lines-count 993 ! THEN
+  993 @ set-cy
+  992 @ 1 + set-cx
+  0
+;
+// Scroll one whole page downward visual viewport logic
+: handle-page-down
+  get-vis-cursor
+  me "/.vie/vis_lines/count" getprop to-int 994 !
+  me "/.vie/scroll/y" getprop to-int get-vh + 995 !
+  
+  994 @ get-vh - 996 !
+  996 @ 0 < IF 0 996 ! THEN
+  
+  995 @ 996 @ > IF 996 @ 995 ! THEN
+  995 @ to-str me "/.vie/scroll/y" rot setprop pop
+  
+  me "/.vie/scroll/y" getprop to-int 1 +
+  read-vis-line-entry
+  990 ! 991 ! 992 ! 993 !
+  993 @ 1 < IF 1 993 ! THEN
+  993 @ get-lines-count > IF get-lines-count 993 ! THEN
+  993 @ set-cy
+  992 @ 1 + set-cx
+  0
+;
+// Main entry point execution router
+: main
+  heap-size 0 == IF
+    me "/.vie/heap_data" getprop dup "" strcmp 0 == IF
+      pop 1000000 heap-alloc
+    ELSE
+      base64-to-heap
+      me "/.vie/heap_data" "" setprop pop
+    THEN
+  THEN
+  init-frame-cache
+  me "/.vie/msg" "" setprop pop
+  dup "[up]" strcmp 0 == IF
+    pop
+    107 handle-normal-mode
+  ELSE
+  dup "[down]" strcmp 0 == IF
+    pop
+    106 handle-normal-mode
+  ELSE
+  dup "[right]" strcmp 0 == IF
+    pop
+    108 handle-normal-mode
+  ELSE
+  dup "[left]" strcmp 0 == IF
+    pop
+    104 handle-normal-mode
+  ELSE
+  dup "[pgup]" strcmp 0 == IF
+    pop
+    handle-page-up
+  ELSE
+  dup "[pgdn]" strcmp 0 == IF
+    pop
+    handle-page-down
+  ELSE
+  dup "[del]" strcmp 0 == IF
+    pop
+    is-help-active IF
+      me "/.vie/msg" "Cannot edit help documentation. Press ESC to return." setprop pop
+    ELSE
+      delete-char-at-cursor
+    THEN
+    0
+  ELSE
+  dup "[resize]" strcmp 0 == IF
+    pop
+    me "/.vie/width" descr conn-width to-str setprop pop
+    me "/.vie/height" descr conn-height to-str setprop pop
+    init-frame-cache
+    db-init
+    term-clear
+    me "/.vie/vis_dirty" "1" setprop pop
+    0
+  ELSE
+  dup "[home]" strcmp 0 == IF
+    pop
+    1 set-cx
+    0
+  ELSE
+  dup "[end]" strcmp 0 == IF
+    pop
+    get-curr-line strlen 1 + set-cx
+    0
+  ELSE
+  dup "[ctrl-home]" strcmp 0 == IF
+    pop
+    1 set-cy
+    1 set-cx
+    0
+  ELSE
+  dup "[ctrl-end]" strcmp 0 == IF
+    pop
+    get-lines-count set-cy
+    get-curr-line strlen 1 + set-cx
+    0
+  ELSE
+    descr conn-getch
+    me "/.vie/mode" getprop to-int
+    dup 0 == IF
+      pop handle-normal-mode
+    ELSE
+    dup 1 == IF
+      pop handle-insert-mode
+    ELSE
+    dup 2 == IF
+      pop handle-command-mode
+    ELSE
+      pop pop pop 0
+    THEN THEN THEN
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  pop
+  me "/.vie/active" getprop to-int IF
+    draw-editor
+  THEN
+;
+
+

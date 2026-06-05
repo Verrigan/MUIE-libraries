@@ -1,0 +1,1922 @@
+/*
+================================================================================
+                                 MORIA OOF SCRIPT
+================================================================================
+A premium, feature-rich terminal roguelike (Moria) with Character Creation,
+Stats Rolling, Fog of War, local lighting radius, and proper collision.
+Designed for 150 columns by 40 rows resolution.
+*/
+
+// Minimum utility function
+: min
+  over over < IF pop ELSE swap pop THEN
+;
+// Absolute value function
+: abs
+  dup 0 < IF -1 * THEN
+;
+// Modulo function
+: mod
+  over over / * -
+;
+// Greater-than check
+: >
+  swap <
+;
+// Greater-than-or-equal check
+: >=
+  < 0 ==
+;
+// Less-than-or-equal check
+: <=
+  swap < 0 ==
+;
+// Range boundaries check - returns true if min <= val <= max
+: in-range?
+  3 pick 3 pick >= rot pop rot rot <= *
+;
+// Maximum utility function
+: max
+  over over > IF pop ELSE swap pop THEN
+;
+// Dynamic light source radius check (None=0, Torch=1, Lantern=2, Phial=3)
+: get-light-radius
+  me "/moria/light/type" getprop
+  dup "Torch" strcmp 0 == IF pop 1 ELSE
+  dup "Brass Lantern" strcmp 0 == IF pop 2 ELSE
+  dup "Phial" strcmp 0 == IF pop 3 ELSE
+  pop 0
+  THEN THEN THEN
+;
+
+: str-to-ascii // str -- ascii
+  str-to-bytes 0 bytes-get
+;
+
+: ascii-to-str // ascii -- str
+  1 bytes-new
+  dup
+  rot
+  0
+  swap
+  bytes-set
+  bytes-to-str
+;
+
+: map-offset // y x -- offset
+  swap 128 * +
+;
+
+: get-explored // y x -- bool
+  map-offset 10000 + heap-@ 1 ==
+;
+
+: set-explored // y x --
+  map-offset 10000 + 1 swap heap-!
+;
+
+: clear-explored // --
+  0
+  BEGIN
+    dup 4096 <
+  WHILE
+    0 over 10000 + heap-!
+    1 +
+  REPEAT
+  pop
+;
+
+: get-override-heap // y x -- ascii
+  map-offset 15000 + heap-@
+;
+
+: set-override-heap // ascii y x --
+  map-offset 15000 + heap-!
+;
+
+: get-terrain-heap // y x -- ascii
+  map-offset 20000 + heap-@
+;
+
+: set-terrain-heap // ascii y x --
+  map-offset 20000 + heap-!
+;
+
+// Temp variables helpers for town generation coordinates using heap
+: set-tx-ty // y x --
+  900 heap-!
+  901 heap-!
+;
+: tx 900 heap-@ ;
+: ty 901 heap-@ ;
+
+: cache-render-vars // --
+  me "/moria/py" getprop to-int 910 heap-!
+  me "/moria/px" getprop to-int 911 heap-!
+  me "/moria/depth" getprop to-int 912 heap-!
+  me "/moria/stairs/y" getprop to-int 913 heap-!
+  me "/moria/stairs/x" getprop to-int 914 heap-!
+  
+  me "/moria/m1/hp" getprop to-int 915 heap-!
+  me "/moria/m1/py" getprop to-int 916 heap-!
+  me "/moria/m1/px" getprop to-int 917 heap-!
+  me "/moria/m1/type" getprop dup "" strcmp 0 == IF pop 32 ELSE str-to-ascii THEN 918 heap-!
+  
+  me "/moria/m2/hp" getprop to-int 919 heap-!
+  me "/moria/m2/py" getprop to-int 920 heap-!
+  me "/moria/m2/px" getprop to-int 921 heap-!
+  me "/moria/m2/type" getprop dup "" strcmp 0 == IF pop 32 ELSE str-to-ascii THEN 922 heap-!
+  
+  me "/moria/m3/hp" getprop to-int 923 heap-!
+  me "/moria/m3/py" getprop to-int 924 heap-!
+  me "/moria/m3/px" getprop to-int 925 heap-!
+  me "/moria/m3/type" getprop dup "" strcmp 0 == IF pop 32 ELSE str-to-ascii THEN 926 heap-!
+;
+
+: in-rect? // y1 y2 x1 x2 -- bool
+  tx swap swap in-range?
+  ty rot rot in-range? *
+;
+
+: get-town-tile // y x -- char
+  set-tx-ty
+  // Check entrances
+  ty 10 == tx 20 == * IF "1" ELSE
+  ty 10 == tx 50 == * IF "2" ELSE
+  ty 10 == tx 80 == * IF "3" ELSE
+  ty 18 == tx 20 == * IF "4" ELSE
+  ty 18 == tx 50 == * IF "5" ELSE
+  ty 18 == tx 80 == * IF "6" ELSE
+  
+  // Check stairs
+  ty 12 == tx 50 == * IF ">" ELSE
+  
+  // Check building blocks
+  ty 6 10 in-range? tx 16 24 in-range? * IF "#" ELSE
+  ty 6 10 in-range? tx 46 54 in-range? * IF "#" ELSE
+  ty 6 10 in-range? tx 76 84 in-range? * IF "#" ELSE
+  ty 18 22 in-range? tx 16 24 in-range? * IF "#" ELSE
+  ty 18 22 in-range? tx 46 54 in-range? * IF "#" ELSE
+  ty 18 22 in-range? tx 76 84 in-range? * IF "#" ELSE
+  
+  // Check town boundaries
+  ty 1 == ty 23 == + tx 1 == tx 95 == + + IF "#" ELSE
+  ty 1 23 in-range? tx 1 95 in-range? * 0 == IF " " ELSE
+  
+  // Open floor
+  "."
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Get terminal width from player connection
+: get-w
+  descr conn-width
+  dup 80 < IF pop 80 THEN
+;
+// Get terminal height from player connection
+: get-h
+  descr conn-height
+  dup 24 < IF pop 24 THEN
+;
+
+// Check if terminal settings/dimensions changed
+: check-settings-changed
+  descr conn-height to-str me "/moria/height" rot setprop pop
+  descr conn-width to-str me "/moria/width" rot setprop pop
+  me "/moria/height" getprop me "/moria/prev_height" getprop strcmp 0 == 0 ==
+  me "/moria/width" getprop me "/moria/prev_width" getprop strcmp 0 == 0 == +
+  IF
+    me "/moria/height" getprop me "/moria/prev_height" rot setprop pop
+    me "/moria/width" getprop me "/moria/prev_width" rot setprop pop
+    1
+  ELSE
+    0
+  THEN
+;
+
+// Ensure double-buffer heap is allocated
+: db-ensure-alloc
+  heap-size 0 == IF 1000000 heap-alloc THEN
+;
+
+// Clear next frame buffer
+: db-clear-next
+  db-ensure-alloc
+  get-w get-h db-clear-next-internal
+;
+
+// Initialize both frame buffers
+: db-init
+  db-ensure-alloc
+  get-w get-h db-init-internal
+;
+
+// Flush next frame to screen
+: db-flush
+  get-w get-h db-flush-internal
+;
+
+// Virtual clear screen
+: g-clear
+  db-clear-next
+;
+
+// Virtual cursor move
+: g-move
+  801 heap-!
+  800 heap-!
+;
+
+// Virtual send / write string to next frame buffer
+: g-send
+  swap pop // discard connection descriptor
+  dup
+  800 heap-@
+  801 heap-@
+  802 heap-@
+  db-write-string
+  strlen
+  801 heap-@ +
+  801 heap-!
+;
+
+// Max visible map columns
+: map-max-col
+  get-w 40 -
+  dup 110 > IF pop 110 THEN
+  dup 1 < IF pop 1 THEN
+;
+
+// Viewport width for the map area
+: get-viewport-w
+  map-max-col
+;
+
+// Viewport height for the map area
+: get-viewport-h
+  get-h 7 -
+  dup 30 > IF pop 30 THEN
+  dup 1 < IF pop 1 THEN
+;
+
+// Viewport horizontal scroll offset
+: get-scroll-x
+  911 heap-@
+  get-viewport-w 2 / -
+  0
+  110 get-viewport-w -
+  swap rot max min
+;
+
+// Viewport vertical scroll offset
+: get-scroll-y
+  910 heap-@
+  get-viewport-h 2 / -
+  0
+  30 get-viewport-h -
+  swap rot max min
+;
+
+// Positions the cursor onto the player's centered screen location
+: move-cursor-to-player
+  910 heap-@ get-scroll-y - 3 +
+  911 heap-@ get-scroll-x -
+  g-move
+;
+
+// Start row for centered creation menus
+: menu-start-row
+  get-h 4 /
+  dup 1 < IF pop 1 THEN
+;
+// Sidebar vertical separator column
+: border-col
+  get-w 39 -
+;
+// Sidebar text starting column
+: status-col
+  get-w 37 -
+;
+// Draw a horizontal line of '='
+: draw-hline
+  dup 1 < IF pop ELSE
+    "=========================================================================================================================================================================================================================================================================================================================================================================================================================="
+    swap strcut pop
+    descr swap g-send
+  THEN
+;
+
+// Line of Sight (LOS) helper functions
+: init-los
+  to-str me "/moria/temp/los_x1" rot setprop pop
+  to-str me "/moria/temp/los_y1" rot setprop pop
+  to-str me "/moria/temp/los_x0" rot setprop pop
+  to-str me "/moria/temp/los_y0" rot setprop pop
+
+  me "/moria/temp/los_y1" getprop to-int me "/moria/temp/los_y0" getprop to-int -
+  dup to-str me "/moria/temp/los_dy" rot setprop pop abs
+
+  me "/moria/temp/los_x1" getprop to-int me "/moria/temp/los_x0" getprop to-int -
+  dup to-str me "/moria/temp/los_dx" rot setprop pop abs
+
+  over over < IF swap pop ELSE pop THEN
+  dup to-str me "/moria/temp/los_steps" rot setprop pop
+  pop
+;
+
+: run-los
+  me "/moria/temp/los_steps" getprop to-int 1 <= IF
+    1
+  ELSE
+    1 // loop index i
+    1 // result flag
+    BEGIN
+      over me "/moria/temp/los_steps" getprop to-int <
+      over 1 == *
+    WHILE
+      to-str me "/moria/temp/los_res" rot setprop pop
+      to-str me "/moria/temp/los_i" rot setprop pop
+
+      me "/moria/temp/los_dy" getprop to-int me "/moria/temp/los_i" getprop to-int *
+      me "/moria/temp/los_dy" getprop to-int 0 < IF
+        me "/moria/temp/los_steps" getprop to-int 2 / -
+      ELSE
+        me "/moria/temp/los_steps" getprop to-int 2 / +
+      THEN
+      me "/moria/temp/los_steps" getprop to-int /
+      me "/moria/temp/los_y0" getprop to-int +
+
+      me "/moria/temp/los_dx" getprop to-int me "/moria/temp/los_i" getprop to-int *
+      me "/moria/temp/los_dx" getprop to-int 0 < IF
+        me "/moria/temp/los_steps" getprop to-int 2 / -
+      ELSE
+        me "/moria/temp/los_steps" getprop to-int 2 / +
+      THEN
+      me "/moria/temp/los_steps" getprop to-int /
+      me "/moria/temp/los_x0" getprop to-int +
+
+      walkable? IF
+        me "/moria/temp/los_res" getprop to-int
+      ELSE
+        0
+      THEN
+
+      me "/moria/temp/los_i" getprop to-int
+      1 +
+      swap
+    REPEAT
+    swap pop
+  THEN
+;
+
+: los?
+  init-los run-los
+;
+
+// Explored map caching and generation management
+: explored? // y x -- bool
+  get-explored
+;
+
+// Custom LCG PRNG - seed = (seed * 1103515245 + 12345) % 2147483647
+: rand
+  me "/moria/rand_seed" getprop to-int
+  dup 0 == IF pop 123456789 THEN
+  1103515245 * 12345 +
+  2147483647 mod
+  dup to-str me "/moria/rand_seed" rot setprop pop
+;
+// Returns a random number from 0 to (N-1)
+: rand-range
+  rand swap mod
+;
+
+: get-override // y x -- str
+  get-override-heap
+  dup 0 == IF
+    pop ""
+  ELSE
+    ascii-to-str
+  THEN
+;
+: set-override // str y x --
+  rot
+  dup "" strcmp 0 == IF
+    pop 0
+  ELSE
+    str-to-ascii
+  THEN
+  rot rot
+  set-override-heap
+;
+
+// Room 1 boundaries floor check
+: r1-floor? 5 25 in-range? swap 4 9 in-range? * ;
+// Room 2 boundaries floor check
+: r2-floor? 40 60 in-range? swap 4 9 in-range? * ;
+// Room 3 boundaries floor check
+: r3-floor? 5 25 in-range? swap 18 25 in-range? * ;
+// Room 4 boundaries floor check
+: r4-floor? 40 60 in-range? swap 18 25 in-range? * ;
+// Room 5 boundaries floor check
+: r5-floor? 75 100 in-range? swap 4 12 in-range? * ;
+// Room 6 boundaries floor check
+: r6-floor? 75 100 in-range? swap 18 26 in-range? * ;
+
+// Corridor floor checks
+: c1-floor? 26 39 in-range? swap 6 == * ;
+: c2-floor? 15 == swap 10 17 in-range? * ;
+: c3-floor? 26 39 in-range? swap 21 == * ;
+: c4-floor? 50 == swap 10 17 in-range? * ;
+: c5-floor? 61 74 in-range? swap 6 == * ;
+: c6-floor? 61 74 in-range? swap 21 == * ;
+: c7-floor? 88 == swap 13 17 in-range? * ;
+
+// Room wall boundaries check
+: r1-border? 4 26 in-range? swap 3 10 in-range? * ;
+: r2-border? 39 61 in-range? swap 3 10 in-range? * ;
+: r3-border? 4 26 in-range? swap 17 26 in-range? * ;
+: r4-border? 39 61 in-range? swap 17 26 in-range? * ;
+: r5-border? 74 101 in-range? swap 3 13 in-range? * ;
+: r6-border? 74 101 in-range? swap 17 27 in-range? * ;
+
+// Floor coordinate lookup
+: floor?
+  over over r1-floor? IF pop pop 1 ELSE
+  over over r2-floor? IF pop pop 1 ELSE
+  over over r3-floor? IF pop pop 1 ELSE
+  over over r4-floor? IF pop pop 1 ELSE
+  over over r5-floor? IF pop pop 1 ELSE
+  over over r6-floor? IF pop pop 1 ELSE
+  over over c1-floor? IF pop pop 1 ELSE
+  over over c2-floor? IF pop pop 1 ELSE
+  over over c3-floor? IF pop pop 1 ELSE
+  over over c4-floor? IF pop pop 1 ELSE
+  over over c5-floor? IF pop pop 1 ELSE
+  over over c6-floor? IF pop pop 1 ELSE
+  over over c7-floor? IF pop pop 1 ELSE
+  pop pop 0
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Wall check
+: wall?
+  over over floor? IF pop pop 0 ELSE
+  over over r1-border? IF pop pop 1 ELSE
+  over over r2-border? IF pop pop 1 ELSE
+  over over r3-border? IF pop pop 1 ELSE
+  over over r4-border? IF pop pop 1 ELSE
+  over over r5-border? IF pop pop 1 ELSE
+  over over r6-border? IF pop pop 1 ELSE
+  pop pop 0
+  THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Door check
+: door?
+  over 6 == over 26 == * IF pop pop 1 ELSE
+  over 6 == over 39 == * IF pop pop 1 ELSE
+  over 10 == over 15 == * IF pop pop 1 ELSE
+  over 17 == over 15 == * IF pop pop 1 ELSE
+  over 21 == over 26 == * IF pop pop 1 ELSE
+  over 21 == over 39 == * IF pop pop 1 ELSE
+  over 10 == over 50 == * IF pop pop 1 ELSE
+  over 17 == over 50 == * IF pop pop 1 ELSE
+  over 6 == over 61 == * IF pop pop 1 ELSE
+  over 6 == over 74 == * IF pop pop 1 ELSE
+  over 21 == over 61 == * IF pop pop 1 ELSE
+  over 21 == over 74 == * IF pop pop 1 ELSE
+  over 13 == over 88 == * IF pop pop 1 ELSE
+  over 17 == over 88 == * IF pop pop 1 ELSE
+  pop pop 0
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Default tile character computation
+: compute-base-tile // y x -- char
+  me "/moria/depth" getprop to-int 0 == IF
+    get-town-tile
+  ELSE
+    over over door? IF pop pop "+" ELSE
+    over over floor? IF pop pop "." ELSE
+    over over wall? IF pop pop "#" ELSE
+    pop pop " "
+    THEN THEN THEN
+  THEN
+;
+
+: cache-terrain-map // --
+  1
+  BEGIN
+    dup 30 <=
+  WHILE
+    1
+    BEGIN
+      dup 110 <=
+    WHILE
+      over over compute-base-tile str-to-ascii
+      3 pick 3 pick
+      set-terrain-heap
+      1 +
+    REPEAT
+    pop
+    1 +
+  REPEAT
+  pop
+;
+
+: init-heap-level // --
+  clear-explored
+  0
+  BEGIN
+    dup 4096 <
+  WHILE
+    0 over 15000 + heap-!
+    1 +
+  REPEAT
+  pop
+  cache-terrain-map
+;
+
+// Default tile character for map layout (door, floor, wall or empty space)
+: get-base-tile // y x -- char
+  get-terrain-heap
+  dup 0 == IF
+    pop " "
+  ELSE
+    ascii-to-str
+  THEN
+;
+
+// Fetch final tile character at coordinate (prioritizing overrides)
+: get-tile
+  over over get-override dup "" strcmp 0 == 0 == IF
+    swap pop swap pop
+  ELSE
+    pop get-base-tile
+  THEN
+;
+
+// Walkable check (only floors, doors, stairs, and shopkeepers are walkable)
+: walkable?
+  get-tile
+  dup "." strcmp 0 ==
+  over "+" strcmp 0 == +
+  over ">" strcmp 0 == +
+  over "$" strcmp 0 == +
+  over "1" strcmp 0 == +
+  over "2" strcmp 0 == +
+  over "3" strcmp 0 == +
+  over "4" strcmp 0 == +
+  over "5" strcmp 0 == +
+  over "6" strcmp 0 == +
+  swap pop
+;
+
+// Check if coordinate values match
+: check-pos?
+  rot == rot rot == *
+;
+
+// Check if player is at coordinate
+: player-at?
+  910 heap-@
+  911 heap-@
+  check-pos?
+;
+
+// Check if monster 1 is alive and at coordinate
+: m1-at?
+  915 heap-@ 0 > IF
+    916 heap-@
+    917 heap-@
+    check-pos?
+  ELSE
+    pop pop 0
+  THEN
+;
+
+// Check if monster 2 is alive and at coordinate
+: m2-at?
+  919 heap-@ 0 > IF
+    920 heap-@
+    921 heap-@
+    check-pos?
+  ELSE
+    pop pop 0
+  THEN
+;
+
+// Check if monster 3 is alive and at coordinate
+: m3-at?
+  923 heap-@ 0 > IF
+    924 heap-@
+    925 heap-@
+    check-pos?
+  ELSE
+    pop pop 0
+  THEN
+;
+
+// Check occupancy of a tile
+: occupied?
+  over over player-at? IF pop pop 1 ELSE
+  over over m1-at? IF pop pop 1 ELSE
+  over over m2-at? IF pop pop 1 ELSE
+  over over m3-at? IF pop pop 1 ELSE
+  pop pop 0
+  THEN THEN THEN THEN
+;
+
+// Get monster ID (1, 2, or 3) at a coordinate, or 0 if none
+: get-monster-at
+  over over m1-at? IF pop pop 1 ELSE
+  over over m2-at? IF pop pop 2 ELSE
+  over over m3-at? IF pop pop 3 ELSE
+  pop pop 0
+  THEN THEN THEN
+;
+
+// Check if player's local lighting illuminates coordinate (radius <= 5 with line of sight)
+: in-light? // y x -- bool
+  902 heap-! // light_x
+  903 heap-! // light_y
+
+  903 heap-@ 910 heap-@ - abs
+  902 heap-@ 911 heap-@ - abs
+  max
+  get-light-radius <= IF
+    910 heap-@
+    911 heap-@
+    903 heap-@
+    902 heap-@
+    los?
+  ELSE
+    0
+  THEN
+;
+
+// Raycast/Line of Sight check (monster sight radius <= 10 with line of sight)
+: can-see-player?
+  me "/moria/temp/my" getprop to-int 910 heap-@ - abs
+  me "/moria/temp/mx" getprop to-int 911 heap-@ - abs +
+  10 <= IF
+    me "/moria/temp/my" getprop to-int
+    me "/moria/temp/mx" getprop to-int
+    910 heap-@
+    911 heap-@
+    los?
+  ELSE
+    0
+  THEN
+;
+
+// Determine visible character at map coordinate (hierarchy - avatar > stairs > terrain)
+: get-char-at
+  912 heap-@ 0 == IF
+    1
+  ELSE
+    over over in-light?
+  THEN
+  IF
+    over over player-at? IF pop pop "@" ELSE
+    over over m1-at? IF pop pop 918 heap-@ ascii-to-str ELSE
+    over over m2-at? IF pop pop 922 heap-@ ascii-to-str ELSE
+    over over m3-at? IF pop pop 926 heap-@ ascii-to-str ELSE
+    over over 913 heap-@ 914 heap-@ check-pos? IF pop pop ">" ELSE
+    get-tile
+    THEN THEN THEN THEN THEN
+  ELSE
+    get-tile
+  THEN
+;
+
+// Helper to translate map coordinates (1-30) to centered screen rows (4-33)
+: g-move-map
+  swap 3 + swap g-move
+;
+
+// Color escape helper mapping color codes to ANSI escape sequences
+: get-color-esc
+  dup 0 == IF pop "\e[0m" ELSE
+  dup 1 == IF pop "\e[1;31m" ELSE
+  dup 2 == IF pop "\e[1;32m" ELSE
+  dup 3 == IF pop "\e[1;33m" ELSE
+  dup 4 == IF pop "\e[1;34m" ELSE
+  dup 5 == IF pop "\e[1;35m" ELSE
+  dup 6 == IF pop "\e[1;36m" ELSE
+  dup 7 == IF pop "\e[1;37m" ELSE
+  dup 8 == IF pop "\e[1;30m" ELSE
+  dup 9 == IF pop "\e[0;33m" ELSE
+  pop "\e[1;37m"
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Helper to determine the color code for a given character
+: get-char-color
+  dup "@" strcmp 0 == IF pop 7 ELSE
+  dup "D" strcmp 0 == IF pop 1 ELSE
+  dup "o" strcmp 0 == IF pop 2 ELSE
+  dup "$" strcmp 0 == IF pop 3 ELSE
+  dup ">" strcmp 0 == IF pop 2 ELSE
+  dup "+" strcmp 0 == IF pop 9 ELSE
+  dup "#" strcmp 0 == IF pop 4 ELSE
+  dup "1" strcmp 0 == over "2" strcmp 0 == + over "3" strcmp 0 == + over "4" strcmp 0 == + IF pop 6 ELSE
+  pop 0
+  THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Helper to get or initialize the screen buffer structure
+: get-screen-struct
+  me "/moria/screen_buffer" getprop
+  dup "" strcmp 0 == IF
+    pop struct-new
+  ELSE
+    json-to-struct
+  THEN
+;
+
+// Helper to save the screen buffer structure back to player
+: save-screen-struct
+  struct-to-json
+  me "/moria/screen_buffer" rot setprop pop
+;
+
+// Helper to save current heap state to database
+: save-game
+  heap-to-base64 me swap "/moria/heap_data" swap setprop pop
+  db-flush
+;
+
+// Invalidate row cache helper (viewport scrolling-aware, using structures)
+: invalidate-row-cache
+  get-scroll-y -
+  dup 1 get-viewport-h in-range? IF
+    to-str
+    get-screen-struct
+    ""
+    rot
+    struct-set-field
+    save-screen-struct
+  ELSE
+    pop
+  THEN
+;
+
+// Draw a single tile at coordinate on screen (re-implemented to invalidate row cache)
+: draw-tile
+  over invalidate-row-cache
+  pop pop
+;
+
+// Marks tiles within the player's lighting area as explored if in LOS
+: explore-light
+  cache-render-vars
+  db-explore-light-internal
+;
+
+// Redraws tiles in local map viewport (no-op since we redraw entire map)
+: draw-local-map
+  pop pop
+;
+
+// Clears the cached map row states (no-op)
+: clear-map-buffer
+;
+
+// Wrapper for clearing the screen
+: clear-screen
+  1 803 heap-!
+  g-clear
+;
+
+// Refresh layout - render entire viewport map coordinates to double-buffer using high-performance JVM primitive
+: draw-map
+  get-viewport-w
+  get-viewport-h
+  get-scroll-x
+  get-scroll-y
+  get-w
+  db-draw-map-internal
+;
+
+
+
+// Renders the side-panel character information at column 112
+// Consumes fuel from active light source when in dungeons
+: consume-light-fuel
+  me "/moria/depth" getprop to-int 0 > IF
+    me "/moria/light/type" getprop "None" strcmp 0 == 0 == IF
+      me "/moria/light/type" getprop "Phial" strcmp 0 == 0 == IF
+        me "/moria/light/turns" getprop to-int 1 -
+        dup 0 <= IF
+          pop
+          me "/moria/light/type" "None" setprop pop
+          me "/moria/light/turns" "0" setprop pop
+          me "/moria/msg" "Your light has gone out!" setprop pop
+        ELSE
+          dup 40 == over 30 == + over 20 == + over 10 == + IF
+            me "/moria/msg" "Your light is growing faint." setprop pop
+          THEN
+          to-str me "/moria/light/turns" rot setprop pop
+        THEN
+      THEN
+    THEN
+  THEN
+;
+
+// Renders the side-panel character information at column 112
+: draw-status
+  draw-map
+  
+  803 heap-@ 1 == IF
+    // Game Banner
+    2 get-w 54 - 2 / g-move descr "U N I V E R S I T Y   O F   M O R I A   (O O F   E D I T I O N)" g-send
+    3 1 g-move get-w draw-hline
+
+    // Side Panel border line (aligned from rows 4 to get-h 7 -)
+    4
+    BEGIN
+      dup get-h 7 - <=
+    WHILE
+      dup border-col g-move
+      descr "|" g-send
+      1 +
+    REPEAT
+    pop
+
+    5 status-col g-move descr "=== CHARACTER INFO ===" g-send
+    7 status-col g-move descr "Name  : " g-send descr me getname g-send
+    8 status-col g-move descr "Race  : " g-send descr me "/moria/race" getprop g-send
+    9 status-col g-move descr "Class : " g-send descr me "/moria/class" getprop g-send
+    
+    11 status-col g-move descr "Strength     : " g-send descr me "/moria/str" getprop g-send
+    12 status-col g-move descr "Intelligence : " g-send descr me "/moria/int" getprop g-send
+    13 status-col g-move descr "Wisdom       : " g-send descr me "/moria/wis" getprop g-send
+    14 status-col g-move descr "Dexterity    : " g-send descr me "/moria/dex" getprop g-send
+    15 status-col g-move descr "Constitution : " g-send descr me "/moria/con" getprop g-send
+    16 status-col g-move descr "Charisma     : " g-send descr me "/moria/cha" getprop g-send
+
+    18 status-col g-move descr "=== VITAL STATISTICS ===" g-send
+    25 status-col g-move descr "=== EQUIPMENT ===" g-send
+    27 status-col g-move descr "Weapon: " g-send descr me "/moria/weapon" getprop g-send
+    28 status-col g-move descr "Shield: " g-send descr me "/moria/shield" getprop g-send
+    
+    get-h 6 - 1 g-move get-w draw-hline
+    get-h 4 - 1 g-move descr "Controls: WASD/HJKL to Move | o to Open Door | > to Go Down Stairs | q to Quit" g-send
+    
+    me "/moria/wizard" getprop to-int IF get-h 10 - status-col g-move descr "[WIZARD MODE]" g-send THEN
+    
+    0 803 heap-!
+  THEN
+
+  10 status-col g-move descr "Pos   : " g-send descr me "/moria/px" getprop g-send descr "," g-send descr me "/moria/py" getprop g-send descr "    " g-send
+  20 status-col g-move descr "HP    : " g-send descr me "/moria/hp" getprop g-send descr " / " g-send descr me "/moria/maxhp" getprop g-send descr "    " g-send
+  21 status-col g-move descr "Mana  : " g-send descr me "/moria/mana" getprop g-send descr "    " g-send
+  22 status-col g-move descr "Gold  : " g-send descr me "/moria/gold" getprop g-send descr "    " g-send
+  23 status-col g-move descr "Depth : " g-send
+  me "/moria/depth" getprop to-int 0 == IF
+    descr "Town" g-send
+  ELSE
+    descr me "/moria/depth" getprop g-send
+    descr " (" g-send
+    descr me "/moria/depth" getprop to-int 50 * to-str g-send
+    descr "ft)    " g-send
+  THEN
+
+  29 status-col g-move descr "Light : " g-send descr me "/moria/light/type" getprop g-send
+  me "/moria/light/type" getprop "None" strcmp 0 == 0 == IF
+    descr " (" g-send descr me "/moria/light/turns" getprop g-send descr ")    " g-send
+  ELSE
+    descr "        " g-send
+  THEN
+
+  get-h 5 - 1 g-move descr "Msg: " g-send descr me "/moria/msg" getprop g-send
+  descr "                                                                                                                        " g-send
+  move-cursor-to-player
+;
+
+// Check if monster and player share the same room
+: in-same-room?
+  910 heap-@ 911 heap-@ r1-floor?
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r1-floor? * IF 1 ELSE
+  910 heap-@ 911 heap-@ r2-floor?
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r2-floor? * IF 1 ELSE
+  910 heap-@ 911 heap-@ r3-floor?
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r3-floor? * IF 1 ELSE
+  910 heap-@ 911 heap-@ r4-floor?
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r4-floor? * IF 1 ELSE
+  910 heap-@ 911 heap-@ r5-floor?
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r5-floor? * IF 1 ELSE
+  910 heap-@ 911 heap-@ r6-floor?
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r6-floor? * IF 1 ELSE
+  0
+  THEN THEN THEN THEN THEN THEN
+;
+
+// Help coordinate increment towards player (simple tracking AI logic)
+: move-monster-coord
+  over over < IF pop 1 + ELSE
+  over over > IF pop 1 - ELSE
+  pop
+  THEN THEN
+;
+
+// Processes AI behavior step for a specific monster (attack player or track player coordinates)
+: monster-turn
+  me "/moria/depth" getprop to-int 0 == IF
+    pop
+  ELSE
+    dup 1 == IF "/moria/m1/" ELSE
+    dup 2 == IF "/moria/m2/" ELSE
+    dup 3 == IF "/moria/m3/" ELSE
+    ""
+    THEN THEN THEN
+    
+    dup "" strcmp 0 == 0 == IF
+      me "/moria/temp/prefix" rot setprop pop
+      me "/moria/temp/prefix" getprop "hp" + me swap getprop to-int 0 > IF
+        me "/moria/temp/prefix" getprop "py" + me swap getprop me "/moria/temp/my" rot setprop pop
+        me "/moria/temp/prefix" getprop "px" + me swap getprop me "/moria/temp/mx" rot setprop pop
+        me "/moria/py" getprop me "/moria/temp/py" rot setprop pop
+        me "/moria/px" getprop me "/moria/temp/px" rot setprop pop
+        
+        me "/moria/temp/my" getprop to-int me "/moria/temp/py" getprop to-int - abs
+        me "/moria/temp/mx" getprop to-int me "/moria/temp/px" getprop to-int - abs
+        + 2 <= IF
+          // Within range -> Attack the player! (Dragon inflicts higher damage)
+          me "/moria/temp/prefix" getprop "/moria/m3/" strcmp 0 == IF 15 ELSE 4 THEN
+          me "/moria/hp" getprop to-int swap -
+          dup 0 <= IF
+            pop me "/moria/hp" "0" setprop pop
+            me "/moria/msg" "The monster attacks! You died! Press q to exit." setprop pop
+          ELSE
+            to-str me "/moria/hp" rot setprop pop
+            me "/moria/msg" me "/moria/msg" getprop " The monster hits you!" + setprop pop
+          THEN
+        ELSE
+          // Move AI - Track player if player is visible, otherwise wander randomly
+          can-see-player? IF
+            me "/moria/temp/mx" getprop to-int me "/moria/temp/px" getprop to-int move-monster-coord to-str me "/moria/temp/new_mx" rot setprop pop
+            me "/moria/temp/my" getprop to-int me "/moria/temp/py" getprop to-int move-monster-coord to-str me "/moria/temp/new_my" rot setprop pop
+          ELSE
+            // Wandering logic - choose random nearby tile
+            me "/moria/temp/mx" getprop to-int rand 3 mod 1 - + to-str me "/moria/temp/new_mx" rot setprop pop
+            me "/moria/temp/my" getprop to-int rand 3 mod 1 - + to-str me "/moria/temp/new_my" rot setprop pop
+          THEN
+          
+          // Ensure destination is walkable and unoccupied
+          me "/moria/temp/new_my" getprop to-int
+          me "/moria/temp/new_mx" getprop to-int
+          over over walkable?
+          rot rot occupied? 0 == * IF
+            me "/moria/temp/prefix" getprop "py" + me swap me "/moria/temp/new_my" getprop setprop pop
+            me "/moria/temp/prefix" getprop "px" + me swap me "/moria/temp/new_mx" getprop setprop pop
+            me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int draw-tile
+            me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_mx" getprop to-int draw-tile
+          THEN
+        THEN
+      THEN
+    ELSE
+      pop
+    THEN
+  THEN
+;
+
+: roll-weapon-dmg
+  rand me "/moria/weapon_dmg" getprop to-int mod 1 +
+;
+
+// Damage processor for hitting monsters (Orc/Dragons)
+: hit-monster
+  dup 1 == IF
+    me "/moria/m1/hp" getprop to-int roll-weapon-dmg -
+    dup 0 <= IF
+      pop me "/moria/m1/hp" "0" setprop pop
+      me "/moria/msg" "You killed the Orc!" setprop pop
+      me "/moria/gold" me "/moria/gold" getprop to-int 25 + to-str setprop pop
+    ELSE
+      to-str me "/moria/m1/hp" rot setprop pop
+      me "/moria/msg" "You hit the Orc!" setprop pop
+    THEN
+  ELSE
+  dup 2 == IF
+    me "/moria/m2/hp" getprop to-int roll-weapon-dmg -
+    dup 0 <= IF
+      pop me "/moria/m2/hp" "0" setprop pop
+      me "/moria/msg" "You killed the Orc!" setprop pop
+      me "/moria/gold" me "/moria/gold" getprop to-int 35 + to-str setprop pop
+    ELSE
+      to-str me "/moria/m2/hp" rot setprop pop
+      me "/moria/msg" "You hit the Orc!" setprop pop
+    THEN
+  ELSE
+  dup 3 == IF
+    me "/moria/m3/hp" getprop to-int roll-weapon-dmg 2 * -
+    dup 0 <= IF
+      pop me "/moria/m3/hp" "0" setprop pop
+      me "/moria/msg" "You killed the Dragon!" setprop pop
+      me "/moria/gold" me "/moria/gold" getprop to-int 150 + to-str setprop pop
+    ELSE
+      to-str me "/moria/m3/hp" rot setprop pop
+      me "/moria/msg" "You hit the Dragon!" setprop pop
+    THEN
+  THEN THEN THEN
+  pop
+;
+
+// Renders the centered ASCII splash screen for centered viewport
+: show-splash
+  me "/moria/state" "0" setprop pop
+  g-clear
+  
+  // Set starting row dynamically based on height to fit inside a 24-row viewport
+  get-h 24 - 2 / dup 0 < IF pop 0 THEN to-str me "/moria/temp/srow" rot setprop pop
+  
+  me "/moria/temp/srow" getprop to-int get-w 37 - 2 / g-move descr "Robert A. Koeneke's classic roguelike" g-send
+  me "/moria/temp/srow" getprop to-int 1 + get-w 21 - 2 / g-move descr "D U N G E O N S   O F" g-send
+  
+  me "/moria/temp/srow" getprop to-int 2 + get-w 51 - 2 / g-move descr "##     ##    #######    ########    ####      ###" g-send
+  me "/moria/temp/srow" getprop to-int 3 + get-w 51 - 2 / g-move descr "###   ###   ##     ##   ##     ##    ##      ## ##" g-send
+  me "/moria/temp/srow" getprop to-int 4 + get-w 51 - 2 / g-move descr "#### ####   ##     ##   ##     ##    ##     ##   ##" g-send
+  me "/moria/temp/srow" getprop to-int 5 + get-w 51 - 2 / g-move descr "## ### ##   ##     ##   ########     ##    ##     ##" g-send
+  me "/moria/temp/srow" getprop to-int 6 + get-w 51 - 2 / g-move descr "##     ##   ##     ##   ##   ##      ##    #########" g-send
+  me "/moria/temp/srow" getprop to-int 7 + get-w 51 - 2 / g-move descr "##     ##   ##     ##   ##    ##     ##    ##     ##" g-send
+  me "/moria/temp/srow" getprop to-int 8 + get-w 51 - 2 / g-move descr "##     ##    #######    ##     ##   ####   ##     ##" g-send
+
+  me "/moria/temp/srow" getprop to-int 9 + get-w 13 - 2 / g-move descr "Umoria 5.7.16" g-send
+  
+  me "/moria/temp/srow" getprop to-int 10 + get-w 71 - 2 / g-move descr "Umoria is free software (GPL-3.0) and comes with ABSOLUTELY NO WARRANTY" g-send
+  me "/moria/temp/srow" getprop to-int 11 + get-w 64 - 2 / g-move descr "For more information: https://github.com/dungeons-of-moria/umoria" g-send
+
+  me "/moria/temp/srow" getprop to-int 12 + get-w 80 - 2 / g-move descr "================================================================================" g-send
+  
+  me "/moria/temp/srow" getprop to-int 13 + get-w 68 - 2 / g-move descr "Welcome to Moria! Generate a character by selecting race and class." g-send
+  me "/moria/temp/srow" getprop to-int 14 + get-w 72 - 2 / g-move descr "Use control-C to interrupt, or '%' to go back and regenerate race/stats." g-send
+  
+  me "/moria/temp/srow" getprop to-int 15 + get-w 80 - 2 / g-move descr "--------------------------------------------------------------------------------" g-send
+  me "/moria/temp/srow" getprop to-int 16 + get-w 38 - 2 / g-move descr "*** TERMINAL CONFIGURATION WARNING ***" g-send
+  me "/moria/temp/srow" getprop to-int 17 + get-w 72 - 2 / g-move descr "Visual game layout adapts to player width/height. Current: " g-send descr get-w to-str g-send descr "x" g-send descr get-h to-str g-send descr " cells." g-send
+  me "/moria/temp/srow" getprop to-int 18 + get-w 80 - 2 / g-move descr "--------------------------------------------------------------------------------" g-send
+  
+  me "/moria/temp/srow" getprop to-int 20 + get-w 42 - 2 / g-move descr "Press SPACE to begin character creation..." g-send
+;
+;
+
+// Splash screen keypress handler
+: handle-splash-key
+  dup " " strcmp 0 == IF
+    pop
+    me "/moria/state" "1" setprop pop
+    show-race-menu
+  ELSE
+    pop
+  THEN
+;
+
+// Renders the character race selection menu (centered)
+: show-race-menu
+  g-clear
+  menu-start-row to-str me "/moria/temp/srow" rot setprop pop
+  get-w 55 - 2 / to-str me "/moria/temp/scol" rot setprop pop
+  
+  me "/moria/temp/srow" getprop to-int me "/moria/temp/scol" getprop to-int g-move descr "=======================================================" g-send
+  me "/moria/temp/srow" getprop to-int 1 + me "/moria/temp/scol" getprop to-int g-move descr "            CHARACTER CREATION: SELECT RACE" g-send
+  me "/moria/temp/srow" getprop to-int 2 + me "/moria/temp/scol" getprop to-int g-move descr "=======================================================" g-send
+  me "/moria/temp/srow" getprop to-int 4 + me "/moria/temp/scol" getprop to-int g-move descr "  Please select your character's race:" g-send
+  me "/moria/temp/srow" getprop to-int 6 + me "/moria/temp/scol" getprop to-int g-move descr "    1. Human (Balanced, no modifiers)" g-send
+  me "/moria/temp/srow" getprop to-int 7 + me "/moria/temp/scol" getprop to-int g-move descr "    2. Elf   (+2 Intelligence, +1 Dexterity, -1 Constitution)" g-send
+  me "/moria/temp/srow" getprop to-int 8 + me "/moria/temp/scol" getprop to-int g-move descr "    3. Dwarf (+2 Strength, +2 Constitution, -2 Charisma)" g-send
+  me "/moria/temp/srow" getprop to-int 9 + me "/moria/temp/scol" getprop to-int g-move descr "    4. Halfling (+2 Dexterity, -1 Strength, -1 Constitution)" g-send
+  me "/moria/temp/srow" getprop to-int 11 + me "/moria/temp/scol" getprop to-int g-move descr "-------------------------------------------------------" g-send
+  me "/moria/temp/srow" getprop to-int 12 + me "/moria/temp/scol" getprop to-int g-move descr "  Enter selection (1-4): " g-send
+;
+
+// Race selection keypress handler
+: handle-race-key
+  dup "1" strcmp 0 == IF "Human" me "/moria/race" rot setprop pop 1 ELSE
+  dup "2" strcmp 0 == IF "Elf" me "/moria/race" rot setprop pop 1 ELSE
+  dup "3" strcmp 0 == IF "Dwarf" me "/moria/race" rot setprop pop 1 ELSE
+  dup "4" strcmp 0 == IF "Halfling" me "/moria/race" rot setprop pop 1 ELSE
+  0
+  THEN THEN THEN THEN
+  IF
+    pop
+    me "/moria/state" "2" setprop pop
+    show-class-menu
+  ELSE
+    pop
+  THEN
+;
+
+// Renders the character class selection menu (centered)
+: show-class-menu
+  g-clear
+  menu-start-row to-str me "/moria/temp/srow" rot setprop pop
+  get-w 55 - 2 / to-str me "/moria/temp/scol" rot setprop pop
+  
+  me "/moria/temp/srow" getprop to-int me "/moria/temp/scol" getprop to-int g-move descr "=======================================================" g-send
+  me "/moria/temp/srow" getprop to-int 1 + me "/moria/temp/scol" getprop to-int g-move descr "            CHARACTER CREATION: SELECT CLASS" g-send
+  me "/moria/temp/srow" getprop to-int 2 + me "/moria/temp/scol" getprop to-int g-move descr "=======================================================" g-send
+  me "/moria/temp/srow" getprop to-int 4 + me "/moria/temp/scol" getprop to-int g-move descr "  Please select your character's class:" g-send
+  me "/moria/temp/srow" getprop to-int 6 + me "/moria/temp/scol" getprop to-int g-move descr "    1. Warrior (+2 Strength, +1 Constitution, -1 Intelligence)" g-send
+  me "/moria/temp/srow" getprop to-int 7 + me "/moria/temp/scol" getprop to-int g-move descr "    2. Mage    (+2 Intelligence, +1 Dexterity, -1 Strength)" g-send
+  me "/moria/temp/srow" getprop to-int 8 + me "/moria/temp/scol" getprop to-int g-move descr "    3. Priest  (+2 Wisdom, +1 Charisma, -1 Dexterity)" g-send
+  me "/moria/temp/srow" getprop to-int 10 + me "/moria/temp/scol" getprop to-int g-move descr "-------------------------------------------------------" g-send
+  me "/moria/temp/srow" getprop to-int 12 + me "/moria/temp/scol" getprop to-int g-move descr "  Enter selection (1-3): " g-send
+;
+
+// Class selection keypress handler
+: handle-class-key
+  dup "1" strcmp 0 == IF "Warrior" me "/moria/class" rot setprop pop 1 ELSE
+  dup "2" strcmp 0 == IF "Mage" me "/moria/class" rot setprop pop 1 ELSE
+  dup "3" strcmp 0 == IF "Priest" me "/moria/class" rot setprop pop 1 ELSE
+  0
+  THEN THEN THEN
+  IF
+    pop
+    me "/moria/state" "3" setprop pop
+    roll-stats
+  ELSE
+    pop
+  THEN
+;
+
+// Displays the character statistics screen from properties
+: draw-stats-screen
+  g-clear
+  // Set starting row dynamically to ensure the prompt stays at row 23 or higher
+  get-h 22 - 2 / dup 1 < IF pop 1 THEN to-str me "/moria/temp/srow" rot setprop pop
+  get-w 55 - 2 / to-str me "/moria/temp/scol" rot setprop pop
+  
+  me "/moria/temp/srow" getprop to-int me "/moria/temp/scol" getprop to-int g-move descr "=======================================================" g-send
+  me "/moria/temp/srow" getprop to-int 1 + me "/moria/temp/scol" getprop to-int g-move descr "            CHARACTER CREATION: STATS ROLLING" g-send
+  me "/moria/temp/srow" getprop to-int 2 + me "/moria/temp/scol" getprop to-int g-move descr "=======================================================" g-send
+  
+  me "/moria/temp/srow" getprop to-int 4 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Race  : " g-send descr me "/moria/race" getprop g-send
+  me "/moria/temp/srow" getprop to-int 5 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Class : " g-send descr me "/moria/class" getprop g-send
+
+  me "/moria/temp/srow" getprop to-int 7 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Strength     : " g-send descr me "/moria/str" getprop g-send
+  me "/moria/temp/srow" getprop to-int 8 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Intelligence : " g-send descr me "/moria/int" getprop g-send
+  me "/moria/temp/srow" getprop to-int 9 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Wisdom       : " g-send descr me "/moria/wis" getprop g-send
+  me "/moria/temp/srow" getprop to-int 10 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Dexterity    : " g-send descr me "/moria/dex" getprop g-send
+  me "/moria/temp/srow" getprop to-int 11 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Constitution : " g-send descr me "/moria/con" getprop g-send
+  me "/moria/temp/srow" getprop to-int 12 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Charisma     : " g-send descr me "/moria/cha" getprop g-send
+
+  me "/moria/temp/srow" getprop to-int 14 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Hit Points   : " g-send descr me "/moria/hp" getprop g-send
+  me "/moria/temp/srow" getprop to-int 15 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Mana Points  : " g-send descr me "/moria/mana" getprop g-send
+  me "/moria/temp/srow" getprop to-int 16 + me "/moria/temp/scol" getprop to-int 5 + g-move descr "Starting Gold: " g-send descr me "/moria/gold" getprop g-send
+
+  me "/moria/temp/srow" getprop to-int 18 + me "/moria/temp/scol" getprop to-int g-move descr "-------------------------------------------------------" g-send
+  me "/moria/temp/srow" getprop to-int 19 + me "/moria/temp/scol" getprop to-int g-move descr "  Press SPACE to re-roll, or 'y' to accept character: " g-send
+;
+
+// Calculates and displays the character statistics
+: roll-stats
+  // Base stats generation (LCG PRNG)
+  rand 6 mod 10 +
+  // Apply Race modifiers
+  me "/moria/race" getprop "Dwarf" strcmp 0 == IF 2 + ELSE
+  me "/moria/race" getprop "Halfling" strcmp 0 == IF 1 - THEN THEN
+  // Apply Class modifiers
+  me "/moria/class" getprop "Warrior" strcmp 0 == IF 2 + ELSE
+  me "/moria/class" getprop "Mage" strcmp 0 == IF 1 - THEN THEN
+  dup to-str me "/moria/str" rot setprop pop
+  pop
+
+  rand 6 mod 10 +
+  me "/moria/race" getprop "Elf" strcmp 0 == IF 2 + THEN
+  me "/moria/class" getprop "Warrior" strcmp 0 == IF 1 - ELSE
+  me "/moria/class" getprop "Mage" strcmp 0 == IF 2 + THEN THEN
+  dup to-str me "/moria/int" rot setprop pop
+  pop
+
+  rand 6 mod 10 +
+  me "/moria/class" getprop "Priest" strcmp 0 == IF 2 + THEN
+  dup to-str me "/moria/wis" rot setprop pop
+  pop
+
+  rand 6 mod 10 +
+  me "/moria/race" getprop "Elf" strcmp 0 == IF 1 + ELSE
+  me "/moria/race" getprop "Halfling" strcmp 0 == IF 2 + THEN THEN
+  me "/moria/class" getprop "Mage" strcmp 0 == IF 1 + ELSE
+  me "/moria/class" getprop "Priest" strcmp 0 == IF 1 - THEN THEN
+  dup to-str me "/moria/dex" rot setprop pop
+  pop
+
+  rand 6 mod 10 +
+  me "/moria/race" getprop "Elf" strcmp 0 == IF 1 - ELSE
+  me "/moria/race" getprop "Dwarf" strcmp 0 == IF 2 + ELSE
+  me "/moria/race" getprop "Halfling" strcmp 0 == IF 1 - THEN THEN THEN
+  me "/moria/class" getprop "Warrior" strcmp 0 == IF 1 + THEN
+  dup to-str me "/moria/con" rot setprop pop
+  pop
+
+  rand 6 mod 10 +
+  me "/moria/race" getprop "Dwarf" strcmp 0 == IF 2 - THEN
+  me "/moria/class" getprop "Priest" strcmp 0 == IF 1 + THEN
+  dup to-str me "/moria/cha" rot setprop pop
+  pop
+
+  // Vitals
+  me "/moria/con" getprop to-int 15 + to-str me "/moria/hp" rot setprop pop
+  me "/moria/hp" getprop me "/moria/maxhp" rot setprop pop
+  me "/moria/int" getprop to-int 5 * to-str me "/moria/mana" rot setprop pop
+  "50" me "/moria/gold" rot setprop pop
+
+  draw-stats-screen
+;
+
+// Keypress handler for rolling stats
+: handle-stat-key
+  dup " " strcmp 0 == IF pop roll-stats ELSE
+  dup "y" strcmp 0 == IF pop start-real-game ELSE
+  pop
+  THEN THEN
+;
+
+// Initialize starting Moria game configuration states
+: start-real-game
+  me "/moria/state" "4" setprop pop
+  me "/moria/active" "1" setprop pop
+  me "/moria/depth" "0" setprop pop
+  me "/moria/px" "49" setprop pop
+  me "/moria/py" "12" setprop pop
+  me "/moria/wizard" "0" setprop pop
+  me "/moria/weapon" "Broadsword (1d8)" setprop pop
+  me "/moria/weapon_dmg" "8" setprop pop
+  me "/moria/shield" "Round Shield" setprop pop
+  me "/moria/inv/potion_healing" "0" setprop pop
+  me "/moria/inv/scroll_phase" "0" setprop pop
+  me "/moria/inv/scroll_recall" "0" setprop pop
+  me "/moria/inv/torch" "2" setprop pop
+  me "/moria/inv/lantern" "0" setprop pop
+  me "/moria/inv/oil" "0" setprop pop
+  me "/moria/inv/phial" "0" setprop pop
+  me "/moria/light/type" "Torch" setprop pop
+  me "/moria/light/turns" "4000" setprop pop
+  me "/moria/deepest_depth" "1" setprop pop
+  me "/moria/msg" "Welcome to the Town of Moria! Step on 1-6 to enter shops, > to descend." setprop pop
+  
+  // Initialize heap level caches
+  init-heap-level
+
+  // Create three monsters (type 'o' Orcs and type 'D' Dragon)
+  me "/moria/m1/hp" "20" setprop pop me "/moria/m1/py" "6" setprop pop me "/moria/m1/px" "25" setprop pop me "/moria/m1/type" "o" setprop pop
+  me "/moria/m2/hp" "40" setprop pop me "/moria/m2/py" "12" setprop pop me "/moria/m2/px" "10" setprop pop me "/moria/m2/type" "o" setprop pop
+  me "/moria/m3/hp" "120" setprop pop me "/moria/m3/py" "13" setprop pop me "/moria/m3/px" "30" setprop pop me "/moria/m3/type" "D" setprop pop
+  
+  // Set stairs coordinates
+  me "/moria/stairs/y" "12" setprop pop me "/moria/stairs/x" "50" setprop pop
+  
+  // Initial override placements for items ($ gold pile) and doors (+ or blank space overrides)
+  "$" 6 28 set-override "$" 12 8 set-override "$" 23 25 set-override
+  "" 6 26 set-override "" 6 39 set-override "" 10 15 set-override "" 17 15 set-override
+  "" 21 26 set-override "" 21 39 set-override "" 10 50 set-override "" 17 50 set-override
+  
+  // Explore player start area
+  explore-light
+  clear-screen
+  draw-map
+  draw-status
+;
+
+/// Dynamically build the inventory string
+: get-inventory-msg
+  "Inventory: [a] " me "/moria/weapon" getprop +
+  "  [b] " + me "/moria/shield" getprop +
+  me "/moria/inv/torch" getprop to-int dup 0 > IF
+    "  [c] Torch (x" swap to-str + ")" + +
+  ELSE pop THEN
+  me "/moria/inv/lantern" getprop to-int dup 0 > IF
+    "  [d] Brass Lantern (x" swap to-str + ")" + +
+  ELSE pop THEN
+  me "/moria/inv/oil" getprop to-int dup 0 > IF
+    "  [e] Flask of Oil (x" swap to-str + ")" + +
+  ELSE pop THEN
+  me "/moria/inv/potion_healing" getprop to-int dup 0 > IF
+    "  [f] Potion of Healing (x" swap to-str + ")" + +
+  ELSE pop THEN
+  me "/moria/inv/scroll_phase" getprop to-int dup 0 > IF
+    "  [g] Scroll of Phase Door (x" swap to-str + ")" + +
+  ELSE pop THEN
+  me "/moria/inv/scroll_recall" getprop to-int dup 0 > IF
+    "  [h] Scroll of Recall (x" swap to-str + ")" + +
+  ELSE pop THEN
+  me "/moria/inv/phial" getprop to-int dup 0 > IF
+    "  [i] Phial of Galadriel (x" swap to-str + ")" + +
+  ELSE pop THEN
+;
+
+// Keypress handler for the active game
+: handle-game-key
+  // Check if the user pressed 'q' or 'Q' to quit
+  dup "q" strcmp 0 == over "Q" strcmp 0 == + IF
+    descr 0 #0 "" conn-raw-mode pop // Disable raw key intercept mode
+    me "/moria/active" "0" setprop pop // Set game active status to false
+    term-clear                      // Clear screen
+    descr "System> Exited Moria. Welcome back to Limbo!\n" notify-conn
+    me "/moria/exited" "1" setprop pop
+    pop
+  ELSE
+    me "/moria/input_state" getprop "wield" strcmp 0 == IF
+      dup "a" strcmp 0 == over "A" strcmp 0 == + IF
+        me "/moria/msg" "You wield the Broadsword (1d8)." setprop pop
+      ELSE
+      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+        me "/moria/msg" "You wear the Round Shield." setprop pop
+      ELSE
+      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+        me "/moria/inv/torch" getprop to-int 0 > IF
+          me "/moria/inv/torch" me "/moria/inv/torch" getprop to-int 1 - to-str setprop pop
+          me "/moria/light/type" "Torch" setprop pop
+          me "/moria/light/turns" "4000" setprop pop
+          me "/moria/msg" "You light a Wooden Torch." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have any Torches." setprop pop
+        THEN
+      ELSE
+      dup "d" strcmp 0 == over "D" strcmp 0 == + IF
+        me "/moria/inv/lantern" getprop to-int 0 > IF
+          me "/moria/inv/lantern" me "/moria/inv/lantern" getprop to-int 1 - to-str setprop pop
+          me "/moria/light/type" "Brass Lantern" setprop pop
+          me "/moria/light/turns" "7500" setprop pop
+          me "/moria/msg" "You light the Brass Lantern." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have any Brass Lanterns." setprop pop
+        THEN
+      ELSE
+      dup "i" strcmp 0 == over "I" strcmp 0 == + IF
+        me "/moria/inv/phial" getprop to-int 0 > IF
+          me "/moria/inv/phial" me "/moria/inv/phial" getprop to-int 1 - to-str setprop pop
+          me "/moria/light/type" "Phial" setprop pop
+          me "/moria/light/turns" "9999" setprop pop
+          me "/moria/msg" "You light the Phial of Galadriel." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have the Phial of Galadriel." setprop pop
+        THEN
+      ELSE
+        me "/moria/msg" "Cancelled." setprop pop
+      THEN THEN THEN THEN THEN
+      me "/moria/input_state" "" setprop pop
+      draw-status
+      pop
+    ELSE
+    me "/moria/input_state" getprop "shop_general" strcmp 0 == IF
+      dup "a" strcmp 0 == over "A" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 20 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 20 - to-str setprop pop
+          me "/moria/inv/potion_healing" me "/moria/inv/potion_healing" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Potion of Healing." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 15 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 15 - to-str setprop pop
+          me "/moria/inv/scroll_phase" me "/moria/inv/scroll_phase" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Scroll of Phase Door." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 50 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 50 - to-str setprop pop
+          me "/moria/inv/scroll_recall" me "/moria/inv/scroll_recall" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Scroll of Recall." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "d" strcmp 0 == over "D" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 10 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 10 - to-str setprop pop
+          me "/moria/inv/torch" me "/moria/inv/torch" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Wooden Torch." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "e" strcmp 0 == over "E" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 25 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 25 - to-str setprop pop
+          me "/moria/inv/lantern" me "/moria/inv/lantern" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Brass Lantern." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "f" strcmp 0 == over "F" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 15 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 15 - to-str setprop pop
+          me "/moria/inv/oil" me "/moria/inv/oil" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Flask of Oil." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+        me "/moria/msg" "Welcome to General Store!" setprop pop
+      THEN THEN THEN THEN THEN THEN
+      me "/moria/input_state" "" setprop pop
+      draw-status
+      pop
+    ELSE
+    me "/moria/input_state" getprop "shop_armory" strcmp 0 == IF
+      dup "a" strcmp 0 == over "A" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 15 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 15 - to-str setprop pop
+          me "/moria/weapon" "Dagger (1d4)" setprop pop
+          me "/moria/weapon_dmg" "4" setprop pop
+          me "/moria/msg" "Bought and wielded Dagger." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 75 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 75 - to-str setprop pop
+          me "/moria/weapon" "Longsword (1d10)" setprop pop
+          me "/moria/weapon_dmg" "10" setprop pop
+          me "/moria/msg" "Bought and wielded Longsword." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 100 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 100 - to-str setprop pop
+          me "/moria/maxhp" me "/moria/maxhp" getprop to-int 20 + to-str setprop pop
+          me "/moria/hp" me "/moria/hp" getprop to-int 20 + to-str setprop pop
+          me "/moria/msg" "Bought Plate Mail (+20 Max HP)." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+        me "/moria/msg" "Welcome to Armory!" setprop pop
+      THEN THEN THEN
+      me "/moria/input_state" "" setprop pop
+      draw-status
+      pop
+    ELSE
+    me "/moria/input_state" getprop "shop_alchemist" strcmp 0 == IF
+      dup "a" strcmp 0 == over "A" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 50 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 50 - to-str setprop pop
+          me "/moria/str" me "/moria/str" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Strength increased by 1!" setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 50 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 50 - to-str setprop pop
+          me "/moria/int" me "/moria/int" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Intelligence increased by 1!" setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 30 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 30 - to-str setprop pop
+          me "/moria/maxhp" getprop me "/moria/hp" rot setprop pop
+          me "/moria/msg" "HP restored to full." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+        me "/moria/msg" "Welcome to Alchemist!" setprop pop
+      THEN THEN THEN
+      me "/moria/input_state" "" setprop pop
+      draw-status
+      pop
+    ELSE
+    me "/moria/input_state" getprop "shop_temple" strcmp 0 == IF
+      dup "a" strcmp 0 == over "A" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 20 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 20 - to-str setprop pop
+          me "/moria/hp" getprop to-int 10 + me "/moria/maxhp" getprop to-int min to-str me "/moria/hp" rot setprop pop
+          me "/moria/msg" "Healed 10 HP." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 30 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 30 - to-str setprop pop
+          me "/moria/msg" "You identify your equipment." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 40 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 40 - to-str setprop pop
+          me "/moria/msg" "Any curses have been removed." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+      dup "d" strcmp 0 == over "D" strcmp 0 == + IF
+        me "/moria/gold" getprop to-int 150 >= IF
+          me "/moria/gold" me "/moria/gold" getprop to-int 150 - to-str setprop pop
+          me "/moria/inv/phial" me "/moria/inv/phial" getprop to-int 1 + to-str setprop pop
+          me "/moria/msg" "Bought Phial of Galadriel." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have enough gold!" setprop pop
+        THEN
+      ELSE
+        me "/moria/msg" "Welcome to Temple!" setprop pop
+      THEN THEN THEN THEN
+      me "/moria/input_state" "" setprop pop
+      draw-status
+      pop
+    ELSE
+    me "/moria/input_state" getprop "use_item" strcmp 0 == IF
+      dup "e" strcmp 0 == over "E" strcmp 0 == + IF
+        me "/moria/inv/oil" getprop to-int 0 > IF
+          me "/moria/light/type" getprop "Brass Lantern" strcmp 0 == IF
+            me "/moria/inv/oil" me "/moria/inv/oil" getprop to-int 1 - to-str setprop pop
+            me "/moria/light/turns" getprop to-int 7500 +
+            dup 15000 > IF pop 15000 THEN
+            to-str me "/moria/light/turns" rot setprop pop
+            me "/moria/msg" "You refuel your Brass Lantern with oil." setprop pop
+          ELSE
+            me "/moria/msg" "You must wield a Brass Lantern to refuel it!" setprop pop
+          THEN
+        ELSE
+          me "/moria/msg" "You do not have any Flasks of Oil." setprop pop
+        THEN
+      ELSE
+      dup "f" strcmp 0 == over "F" strcmp 0 == + IF
+        me "/moria/inv/potion_healing" getprop to-int 0 > IF
+          me "/moria/inv/potion_healing" me "/moria/inv/potion_healing" getprop to-int 1 - to-str setprop pop
+          me "/moria/hp" getprop to-int 15 + me "/moria/maxhp" getprop to-int min to-str me "/moria/hp" rot setprop pop
+          me "/moria/msg" "You quaff Potion of Healing. Healed 15 HP." setprop pop
+        ELSE
+          me "/moria/msg" "You do not have any Potions of Healing." setprop pop
+        THEN
+      ELSE
+      dup "g" strcmp 0 == over "G" strcmp 0 == + IF
+        me "/moria/inv/scroll_phase" getprop to-int 0 > IF
+          me "/moria/inv/scroll_phase" me "/moria/inv/scroll_phase" getprop to-int 1 - to-str setprop pop
+          rand 95 mod 5 + to-str me "/moria/px" rot setprop pop
+          rand 20 mod 5 + to-str me "/moria/py" rot setprop pop
+          me "/moria/msg" "You read the Scroll of Phase Door. You teleport!" setprop pop
+          explore-light
+          clear-screen
+          draw-map
+        ELSE
+          me "/moria/msg" "You do not have any Scrolls of Phase Door." setprop pop
+        THEN
+      ELSE
+      dup "h" strcmp 0 == over "H" strcmp 0 == + IF
+        me "/moria/inv/scroll_recall" getprop to-int 0 > IF
+          me "/moria/inv/scroll_recall" me "/moria/inv/scroll_recall" getprop to-int 1 - to-str setprop pop
+          me "/moria/depth" getprop to-int 0 > IF
+            me "/moria/depth" getprop me "/moria/deepest_depth" rot setprop pop
+            me "/moria/depth" "0" setprop pop
+            me "/moria/px" "49" setprop pop
+            me "/moria/py" "12" setprop pop
+            me "/moria/msg" "You recall back to the town." setprop pop
+          ELSE
+            me "/moria/deepest_depth" getprop to-int me "/moria/depth" rot to-str setprop pop
+            me "/moria/px" "7" setprop pop
+            me "/moria/py" "5" setprop pop
+            me "/moria/msg" "You recall back to the dungeon." setprop pop
+          THEN
+          init-heap-level
+          "$" 6 28 set-override "$" 12 8 set-override "$" 23 25 set-override
+          explore-light
+          clear-screen
+          draw-map
+        ELSE
+          me "/moria/msg" "You do not have any Scrolls of Recall." setprop pop
+        THEN
+      ELSE
+        me "/moria/msg" "Cancelled." setprop pop
+      THEN THEN THEN THEN
+      me "/moria/input_state" "" setprop pop
+      draw-status
+      pop
+    ELSE
+      dup "i" strcmp 0 == over "I" strcmp 0 == + IF
+        get-inventory-msg me "/moria/msg" rot setprop pop
+        draw-status
+        pop
+      ELSE
+      dup "w" strcmp 0 == over "W" strcmp 0 == + IF
+        me "/moria/input_state" "wield" setprop pop
+        me "/moria/msg" "Wield/wear: [a] Sword [b] Shield [c] Torch [d] Lantern [i] Phial" setprop pop
+        draw-status
+        pop
+      ELSE
+      dup "u" strcmp 0 == over "U" strcmp 0 == + IF
+        me "/moria/input_state" "use_item" setprop pop
+        me "/moria/msg" "Use: [e] Oil [f] Potion [g] Phase Scroll [h] Recall Scroll" setprop pop
+        draw-status
+        pop
+      ELSE
+        // Track original coordinates to clear/redraw tiles later
+        me "/moria/px" getprop to-int me "/moria/temp/old_px" rot to-str setprop pop
+        me "/moria/py" getprop to-int me "/moria/temp/old_py" rot to-str setprop pop
+        
+        // Clear direction delta offsets
+        0 me "/moria/temp/dx" rot to-str setprop pop
+        0 me "/moria/temp/dy" rot to-str setprop pop
+        
+        // Map movement keys to delta direction offsets
+        dup "k" strcmp 0 == over "[up]" strcmp 0 == + over "8" strcmp 0 == + IF -1 me "/moria/temp/dy" rot to-str setprop pop THEN
+        dup "s" strcmp 0 == over "j" strcmp 0 == + over "[down]" strcmp 0 == + over "2" strcmp 0 == + IF 1 me "/moria/temp/dy" rot to-str setprop pop THEN
+        dup "a" strcmp 0 == over "h" strcmp 0 == + over "[left]" strcmp 0 == + over "4" strcmp 0 == + IF -1 me "/moria/temp/dx" rot to-str setprop pop THEN
+        dup "d" strcmp 0 == over "l" strcmp 0 == + over "[right]" strcmp 0 == + over "6" strcmp 0 == + IF 1 me "/moria/temp/dx" rot to-str setprop pop THEN
+        
+        // Diagonals (Numpad)
+        dup "7" strcmp 0 == over "[home]" strcmp 0 == + IF
+          -1 me "/moria/temp/dy" rot to-str setprop pop
+          -1 me "/moria/temp/dx" rot to-str setprop pop
+        THEN
+        dup "9" strcmp 0 == over "[pgup]" strcmp 0 == + IF
+          -1 me "/moria/temp/dy" rot to-str setprop pop
+          1 me "/moria/temp/dx" rot to-str setprop pop
+        THEN
+        dup "1" strcmp 0 == over "[end]" strcmp 0 == + IF
+          1 me "/moria/temp/dy" rot to-str setprop pop
+          -1 me "/moria/temp/dx" rot to-str setprop pop
+        THEN
+        dup "3" strcmp 0 == over "[pgdn]" strcmp 0 == + IF
+          1 me "/moria/temp/dy" rot to-str setprop pop
+          1 me "/moria/temp/dx" rot to-str setprop pop
+        THEN
+        
+        // Rest key (5)
+        dup "5" strcmp 0 == IF
+          1 me "/moria/temp/rest" rot to-str setprop pop
+        THEN
+        
+        // Handle stairs descent '>'
+        dup ">" strcmp 0 == IF
+          me "/moria/depth" getprop to-int 0 == IF
+            me "/moria/py" getprop to-int 12 ==
+            me "/moria/px" getprop to-int 50 == *
+          ELSE
+            me "/moria/py" getprop to-int me "/moria/stairs/y" getprop to-int ==
+            me "/moria/px" getprop to-int me "/moria/stairs/x" getprop to-int == *
+          THEN IF
+            // Increment depth and reset player position
+            me "/moria/depth" me "/moria/depth" getprop to-int 1 + to-str setprop pop
+            me "/moria/px" "7" setprop pop me "/moria/py" "5" setprop pop
+            
+            // Scale monster HPs with the depth level
+            me "/moria/m1/hp" me "/moria/depth" getprop to-int 10 * 20 + to-str setprop pop
+            me "/moria/m1/py" "6" setprop pop me "/moria/m1/px" "25" setprop pop
+            me "/moria/m2/hp" me "/moria/depth" getprop to-int 15 * 40 + to-str setprop pop
+            me "/moria/m2/py" "12" setprop pop me "/moria/m2/px" "10" setprop pop
+            me "/moria/m3/hp" me "/moria/depth" getprop to-int 30 * 120 + to-str setprop pop
+            me "/moria/m3/py" "13" setprop pop me "/moria/m3/px" "30" setprop pop
+            
+            // Clear and cache new level
+            init-heap-level
+
+            // Reset treasure overrides
+            "$" 6 28 set-override "$" 12 8 set-override "$" 23 25 set-override
+            
+            me "/moria/msg" "You descend deeper into the darkness..." setprop pop
+            explore-light
+            clear-screen draw-map draw-status
+            save-game
+          ELSE
+            me "/moria/msg" "There are no stairs here." setprop pop draw-status
+          THEN
+        THEN
+        
+        // Handle debug Wizard Mode toggle 'W'
+        dup "W" strcmp 0 == IF
+          me FLAG_GOD has-flag me FLAG_WIZARD has-flag + IF
+            me "/moria/wizard" getprop to-int IF
+              me "/moria/wizard" "0" setprop pop
+              me "/moria/msg" "Wizard mode DISABLED." setprop pop
+            ELSE
+              me "/moria/wizard" "1" setprop pop
+              me "/moria/msg" "Wizard mode ENABLED." setprop pop
+            THEN
+            draw-status
+          ELSE
+            me "/moria/msg" "Wizards only." setprop pop draw-status
+          THEN
+        THEN
+        
+        // Perform movement if delta offset is non-zero (or resting)
+        me "/moria/temp/dx" getprop to-int 0 == 0 ==
+        me "/moria/temp/dy" getprop to-int 0 == 0 == +
+        me "/moria/temp/rest" getprop to-int + IF
+          me "/moria/temp/rest" getprop to-int IF
+            // Rest turn
+            0 me "/moria/temp/rest" rot to-str setprop pop
+            me "/moria/msg" "You rest." setprop pop
+            consume-light-fuel
+            1 monster-turn 2 monster-turn 3 monster-turn
+            draw-status
+          ELSE
+            // Perform movement
+            me "/moria/temp/old_px" getprop to-int me "/moria/temp/dx" getprop to-int + to-str me "/moria/temp/new_px" rot setprop pop
+            me "/moria/temp/old_py" getprop to-int me "/moria/temp/dy" getprop to-int + to-str me "/moria/temp/new_my" rot setprop pop
+            
+            me "/moria/temp/new_my" getprop to-int
+            me "/moria/temp/new_px" getprop to-int
+            get-monster-at dup 0 > IF
+              // We hit a monster!
+              hit-monster
+              consume-light-fuel
+              1 monster-turn 2 monster-turn 3 monster-turn
+              draw-status
+            ELSE
+              pop
+              // No monster, check walls/doors/etc
+              me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int get-tile
+              
+              // Wall collision handling
+              dup "#" strcmp 0 == IF
+                me "/moria/wizard" getprop to-int IF
+                  me "/moria/px" me "/moria/temp/new_px" getprop setprop pop
+                  me "/moria/py" me "/moria/temp/new_my" getprop setprop pop
+                  explore-light
+                  me "/moria/temp/old_py" getprop to-int me "/moria/temp/old_px" getprop to-int draw-local-map
+                  me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int draw-local-map
+                  me "/moria/msg" "You pass through the wall." setprop pop
+                  consume-light-fuel
+                  1 monster-turn 2 monster-turn 3 monster-turn
+                  draw-status
+                ELSE
+                  me "/moria/msg" "You hit a wall!" setprop pop draw-status
+                THEN
+              ELSE
+              // Closed door collision -> open door
+              dup "+" strcmp 0 == IF
+                "." me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int set-override
+                me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int draw-tile
+                me "/moria/msg" "You open the door." setprop pop
+                consume-light-fuel
+                1 monster-turn 2 monster-turn 3 monster-turn
+                draw-status
+              ELSE
+              
+              // Ensure destination is walkable (no walking through empty space/void between rooms)
+              me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int walkable? IF
+                // check if it's a shopkeeper tile
+                me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int get-tile
+                dup "1" strcmp 0 == over "6" strcmp 0 == + IF
+                  pop me "/moria/input_state" "shop_general" setprop pop
+                  me "/moria/msg" "General Store: [a] Potion (20g) [b] Phase (15g) [c] Recall (50g) [d] Torch (10g) [e] Lantern (25g) [f] Oil (15g)" setprop pop save-game
+                ELSE
+                dup "2" strcmp 0 == over "3" strcmp 0 == + IF
+                  pop me "/moria/input_state" "shop_armory" setprop pop
+                  me "/moria/msg" "Armory: [a] Dagger (1d4) (15g)  [b] Longsword (1d10) (75g)  [c] Plate Mail (100g)" setprop pop save-game
+                ELSE
+                dup "4" strcmp 0 == IF
+                  pop me "/moria/input_state" "shop_temple" setprop pop
+                  me "/moria/msg" "Temple: [a] Bless (20g) [b] Identify (30g) [c] Uncurse (40g) [d] Phial of Galadriel (150g)" setprop pop save-game
+                ELSE
+                dup "5" strcmp 0 == IF
+                  pop me "/moria/input_state" "shop_alchemist" setprop pop
+                  me "/moria/msg" "Alchemist: [a] Potion of Strength (50g)  [b] Potion of Intelligence (50g)  [c] Potion of Restore Life (30g)" setprop pop save-game
+                ELSE
+                  // Gold collection
+                  dup "$" strcmp 0 == IF
+                    me "/moria/gold" me "/moria/gold" getprop to-int 10 + to-str setprop pop
+                    me "/moria/msg" "You collect 10 gold!" setprop pop
+                    "" me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int set-override
+                  ELSE
+                    me "/moria/msg" " " setprop pop
+                  THEN
+                THEN THEN THEN THEN
+                
+                // Apply movement coordinates
+                me "/moria/px" me "/moria/temp/new_px" getprop setprop pop
+                me "/moria/py" me "/moria/temp/new_my" getprop setprop pop
+                
+                // Explore new local area
+                explore-light
+                
+                // Redraw local viewport
+                me "/moria/temp/old_py" getprop to-int me "/moria/temp/old_px" getprop to-int draw-local-map
+                me "/moria/temp/new_my" getprop to-int me "/moria/temp/new_px" getprop to-int draw-local-map
+                
+                consume-light-fuel
+                // Let monsters take their turns
+                1 monster-turn 2 monster-turn 3 monster-turn
+                draw-status
+              ELSE
+                me "/moria/msg" "You cannot walk there." setprop pop draw-status
+              THEN
+              
+              THEN THEN
+              pop
+            THEN
+          THEN
+        THEN
+        pop
+      THEN THEN THEN
+    THEN THEN THEN THEN THEN THEN
+  THEN
+;
+
+// Redraws the screen based on the current game state
+: redraw-screen
+  me "/moria/state" getprop to-int
+  dup 0 == IF pop show-splash ELSE
+  dup 1 == IF pop show-race-menu ELSE
+  dup 2 == IF pop show-class-menu ELSE
+  dup 3 == IF pop draw-stats-screen ELSE
+  dup 4 == IF pop clear-screen draw-map draw-status ELSE
+  pop
+  THEN THEN THEN THEN THEN
+;
+
+// Main entry point execution router
+: main
+  heap-size 0 == IF
+    me "/moria/heap_data" getprop dup "" strcmp 0 == IF
+      pop 1000000 heap-alloc
+    ELSE
+      base64-to-heap
+    THEN
+  THEN
+
+  check-settings-changed IF
+    db-init
+    term-clear
+    clear-screen
+  THEN
+
+  dup "" strcmp 0 == IF
+    pop
+    db-init
+    term-clear
+    // Register raw terminal intercepts to player connection descriptor
+    descr 1 #0 "/cmd/moria" conn-raw-mode pop
+    me "/moria/exited" "0" setprop pop
+    db-clear-next
+    1 803 heap-!
+    
+    // Check if there is an active saved game
+    me "/moria/state" getprop to-int 4 ==
+    me "/moria/heap_data" getprop "" strcmp 0 == 0 == * IF
+      // Resume game!
+      redraw-screen
+      db-flush
+    ELSE
+      show-splash
+      // Save heap and flush initially
+      heap-to-base64 me swap "/moria/heap_data" swap setprop pop
+      db-flush
+    THEN
+  ELSE
+    803 heap-@ 1 == IF
+      db-clear-next
+    THEN
+    
+    dup "[resize]" strcmp 0 == IF
+      pop
+    ELSE
+      me "/moria/state" getprop to-int
+      dup 0 == IF pop handle-splash-key ELSE
+      dup 1 == IF pop handle-race-key ELSE
+      dup 2 == IF pop handle-class-key ELSE
+      dup 3 == IF pop handle-stat-key ELSE
+      dup 4 == IF pop handle-game-key ELSE
+      pop pop
+      THEN THEN THEN THEN THEN
+    THEN
+
+    me "/moria/exited" getprop "1" strcmp 0 == 0 == IF
+      redraw-screen
+    THEN
+
+    me "/moria/exited" getprop "1" strcmp 0 == IF
+      // Exited
+      me "/moria/hp" getprop to-int 0 <= IF
+        // Dead: wipe character
+        heap-free
+        me "/moria/heap_data" "" setprop pop
+        me "/moria/state" "0" setprop pop
+      ELSE
+        // Save and quit: save character progress
+        heap-to-base64 me swap "/moria/heap_data" swap setprop pop
+        heap-free
+      THEN
+    ELSE
+      // Flush screen changes to client
+      db-flush
+      // Position physical cursor to virtual cursor location
+      800 heap-@
+      dup 1 < IF pop 1 THEN
+      801 heap-@
+      dup 1 < IF pop 1 THEN
+      term-move
+    THEN
+  THEN
+;
