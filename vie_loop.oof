@@ -636,6 +636,7 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
 ;
 
 : update-comment-state // ( state line -- new_state )
+  "//" str-split pop
   over 0 == IF
     "/*" split-by-delim IF
       swap pop 1 swap
@@ -898,7 +899,7 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
     pop
   ELSE
     me "/.vie/lines/" me "/.vie/cursor/y" getprop + rot setprop pop
-    me "/.vie/cursor/y" getprop to-int 1 + invalidate-comment-state-cache
+    me "/.vie/cursor/y" getprop to-int invalidate-comment-state-cache
   THEN
 ;
 // Shifts all trailing line slots downward to open space for newline
@@ -1317,7 +1318,7 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
       dup 0 > IF
         987 @ + 987 !
         me "/.vie/lines/" 3 pick to-str + rot setprop pop
-        dup 1 + invalidate-comment-state-cache
+        dup invalidate-comment-state-cache
       ELSE
         pop pop
       THEN

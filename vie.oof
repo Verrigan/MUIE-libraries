@@ -637,6 +637,7 @@ help guides, and redirects player input mode to vie_loop.
 ;
 
 : update-comment-state // ( state line -- new_state )
+  "//" str-split pop
   over 0 == IF
     "/*" split-by-delim IF
       swap pop 1 swap
