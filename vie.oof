@@ -743,18 +743,13 @@ help guides, and redirects player input mode to vie_loop.
   me "/.vie/vierc" getprop
   dup "" strcmp 0 == IF
     pop
-    me "/.vie/theme/keywords" "0" setprop pop
-    me "/.vie/theme/prims" "0" setprop pop
-    me "/.vie/theme/ops" "0" setprop pop
-    me "/.vie/theme/nums" "0" setprop pop
-    me "/.vie/theme/strs" "0" setprop pop
-    me "/.vie/theme/comments" "0" setprop pop
-    me "/.vie/theme/lns" "0" setprop pop
-    me "/.vie/theme/gutter" "0" setprop pop
-  ELSE
-    clean-rc-comments
-    dup "=" str-split swap pop "" strcmp 0 == IF
-      pop
+    me "/.vie/vierc" "keywords=3; prims=5; ops=1; nums=2; strs=2; comments=6; lns=3; gutter=3;" setprop pop
+    me "/.vie/vierc" getprop
+  THEN
+
+  clean-rc-comments
+  dup "=" str-split swap pop "" strcmp 0 == IF
+    pop
       me "/.vie/theme/keywords" "0" setprop pop
       me "/.vie/theme/prims" "0" setprop pop
       me "/.vie/theme/ops" "0" setprop pop
