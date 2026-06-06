@@ -1,0 +1,54 @@
+// Modulo helper (a % b)
+: mod
+  over over / * -
+;
+
+: init-vars
+  10 @ 0 == IF
+    1 10 ! // Set init flag to 1
+    1 11 ! // Show grid = 1
+    0 13 ! // Rotation angle = 0
+  THEN
+;
+
+: update-animation
+  13 @ 2 + 360 mod 13 !
+;
+
+: draw-gui
+  450 200 700 450 "MUIE-Nox Game Portal" ui-panel
+  
+  480 250 "title" "WELCOME TO THE GAME PORTAL" ui-text
+  480 290 "accent" "Please select a game to play:" ui-text
+  
+  480 340 250 40 "Play Stack 'em" ui-button IF
+    "/play stack_em" send-line
+  THEN
+  750 350 "green" "3D Tetris game" ui-text
+  
+  480 400 250 40 "Play Nox Demo" ui-button IF
+    "/play nox_demo" send-line
+  THEN
+  750 410 "yellow" "3D graphics showcase" ui-text
+  
+  480 460 250 40 "Exit Game" ui-button IF
+    "/quit" send-line
+  THEN
+  750 470 "red" "Disconnect from server" ui-text
+  
+  480 580 "accent" "Press ESC or click Exit to quit." ui-text
+;
+
+: main
+  init-vars
+  update-animation
+  
+  // Slowly rotate camera around the background scene
+  0 2 10 -15 13 @ 0 set-camera
+  
+  // Draw rotating shapes in background
+  "cube" -3 1 -2 13 @ 13 @ 0 draw-mesh
+  "pyramid" 3 1 -2 0 13 @ 0 draw-mesh
+  
+  draw-gui
+;

@@ -1,0 +1,109 @@
+/*
+================================================================================
+                               NOX DEMO SCRIPT
+================================================================================
+An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
+*/
+
+// Modulo helper (a % b)
+: mod
+  over over / * -
+;
+
+: init-vars
+  10 @ 0 == IF
+    1 10 ! // Set init flag to 1
+    1 11 ! // Show 3D Grid = 1
+    1 12 ! // Show Cube = 1
+    0 13 ! // Cube angle = 0
+    1 14 ! // Camera auto-rotate = 1
+    0 15 ! // Camera angle = 0
+  THEN
+;
+
+: update-animation
+  // Increment cube rotation angle
+  13 @ 2 + 360 mod 13 !
+  
+  // If camera auto-rotate is active, increment camera angle
+  14 @ 1 == IF
+    15 @ 1 + 360 mod 15 !
+  THEN
+;
+
+: setup-camera
+  // Camera transform: x y z pitch yaw roll
+  0 2 6 -15 15 @ 0 set-camera
+;
+
+: draw-3d-scene
+  // Draw rotating cube and pyramids at coordinates if active
+  12 @ 1 == IF
+    "cube" 0 0 0 13 @ 13 @ 0 draw-mesh
+    "pyramid" 2 0 -2 0 13 @ 0 draw-mesh
+    "pyramid" -2 0 -2 0 13 @ 0 draw-mesh
+  THEN
+;
+
+: draw-gui
+  // Draw the main UI Panel
+  550 250 500 400 "Nox Interface Demo Menu" ui-panel
+  
+  // Title Text
+  570 300 "title" "MUIE-NOX INTERACTIVE MENU" ui-text
+  
+  // Button 1: Toggle Grid
+  570 340 300 35 "Toggle 3D Grid" ui-button IF
+    11 @ 1 == IF 0 11 ! ELSE 1 11 ! THEN
+  THEN
+  
+  // Grid status text
+  11 @ 1 == IF
+    890 350 "green" "ACTIVE" ui-text
+  ELSE
+    890 350 "red" "INACTIVE" ui-text
+  THEN
+
+  // Button 2: Toggle Rotating Cube
+  570 390 300 35 "Toggle 3D Shapes" ui-button IF
+    12 @ 1 == IF 0 12 ! ELSE 1 12 ! THEN
+  THEN
+
+  // Shapes status text
+  12 @ 1 == IF
+    890 400 "green" "ACTIVE" ui-text
+  ELSE
+    890 400 "red" "INACTIVE" ui-text
+  THEN
+
+  // Button 3: Toggle Camera Auto-Rotate
+  570 440 300 35 "Toggle Camera Rotation" ui-button IF
+    14 @ 1 == IF 0 14 ! ELSE 1 14 ! THEN
+  THEN
+
+  // Camera status text
+  14 @ 1 == IF
+    890 450 "green" "ACTIVE" ui-text
+  ELSE
+    890 450 "red" "INACTIVE" ui-text
+  THEN
+
+  // Display Camera angle info
+  570 495 "yellow" "Camera Angle: " ui-text
+  720 495 "yellow" 15 @ to-str ui-text
+  
+  570 540 300 35 "Return to Main Menu" ui-button IF
+    "/play menu" send-line
+  THEN
+  
+  // Footer text
+  570 590 "accent" "Press ESC to return to login / exit." ui-text
+;
+
+: main
+  init-vars
+  update-animation
+  setup-camera
+  draw-3d-scene
+  draw-gui
+;

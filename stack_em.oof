@@ -1,0 +1,730 @@
+/*
+================================================================================
+                                STACK 'EM
+================================================================================
+A premium 3D visually rendered, 2D grid Tetris clone for the MUIE-Nox client.
+Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI elements.
+*/
+
+// --- Utility Helpers ---
+
+// Modulo helper (a % b)
+: mod
+  over over / * -
+;
+
+// Write coordinates to the tetromino shape table in the heap
+// ( piece rotation block dx dy -- )
+: set-piece-coord
+  995 ! // dy
+  996 ! // dx
+  997 ! // block
+  998 ! // rotation
+  999 ! // piece
+  
+  // calculate base heap address
+  999 @ 32 *
+  998 @ 8 * +
+  997 @ 2 * +
+  9000 ! // base address
+  
+  // Store offset shifted by +2 to avoid negative values in heap-!
+  996 @ 2 + 9000 @ heap-!
+  995 @ 2 + 9000 @ 1 + heap-!
+;
+
+// Retrieve coordinates from the tetromino shape table in the heap
+// ( piece rotation block -- dx dy )
+: get-piece-coord
+  997 ! // block
+  998 ! // rotation
+  999 ! // piece
+  
+  999 @ 32 *
+  998 @ 8 * +
+  997 @ 2 * +
+  9000 !
+  
+  9000 @ heap-@ 2 -
+  9000 @ 1 + heap-@ 2 -
+;
+
+// Helper to copy a piece's rotation coordinates to another rotation slot
+// ( piece src_rot dest_rot -- )
+: clone-rotation
+  991 ! // dest_rot
+  992 ! // src_rot
+  993 ! // piece
+  
+  0 BEGIN dup 4 < WHILE
+    dup 994 ! // block
+    993 @ 992 @ 994 @ get-piece-coord
+    995 ! // dy
+    996 ! // dx
+    993 @ 991 @ 994 @ 996 @ 995 @ set-piece-coord
+    1 +
+  REPEAT
+  pop
+;
+
+// --- Tetromino Shape Table Initialization ---
+
+: init-tetromino-table
+  // Allocate heap memory for our coordinates (224 bytes needed)
+  256 heap-alloc
+  
+  // Piece 0: I-piece (cyan)
+  0 0 0 -1 0 set-piece-coord
+  0 0 1  0 0 set-piece-coord
+  0 0 2  1 0 set-piece-coord
+  0 0 3  2 0 set-piece-coord
+  
+  0 1 0  0 -1 set-piece-coord
+  0 1 1  0 0 set-piece-coord
+  0 1 2  0 1 set-piece-coord
+  0 1 3  0 2 set-piece-coord
+  
+  0 0 2 clone-rotation
+  0 1 3 clone-rotation
+  
+  // Piece 1: O-piece (yellow)
+  1 0 0  0 0 set-piece-coord
+  1 0 1  1 0 set-piece-coord
+  1 0 2  0 1 set-piece-coord
+  1 0 3  1 1 set-piece-coord
+  
+  1 0 1 clone-rotation
+  1 0 2 clone-rotation
+  1 0 3 clone-rotation
+  
+  // Piece 2: T-piece (magenta)
+  2 0 0 -1 0 set-piece-coord
+  2 0 1  0 0 set-piece-coord
+  2 0 2  1 0 set-piece-coord
+  2 0 3  0 1 set-piece-coord
+  
+  2 1 0  0 -1 set-piece-coord
+  2 1 1  0 0 set-piece-coord
+  2 1 2  0 1 set-piece-coord
+  2 1 3  1 0 set-piece-coord
+  
+  2 2 0 -1 0 set-piece-coord
+  2 2 1  0 0 set-piece-coord
+  2 2 2  1 0 set-piece-coord
+  2 2 3  0 -1 set-piece-coord
+  
+  2 3 0  0 -1 set-piece-coord
+  2 3 1  0 0 set-piece-coord
+  2 3 2  0 1 set-piece-coord
+  2 3 3 -1 0 set-piece-coord
+  
+  // Piece 3: L-piece (orange)
+  3 0 0 -1 0 set-piece-coord
+  3 0 1  0 0 set-piece-coord
+  3 0 2  1 0 set-piece-coord
+  3 0 3  1 1 set-piece-coord
+  
+  3 1 0  0 -1 set-piece-coord
+  3 1 1  0 0 set-piece-coord
+  3 1 2  0 1 set-piece-coord
+  3 1 3 -1 1 set-piece-coord
+  
+  3 2 0 -1 0 set-piece-coord
+  3 2 1  0 0 set-piece-coord
+  3 2 2  1 0 set-piece-coord
+  3 2 3 -1 -1 set-piece-coord
+  
+  3 3 0  0 -1 set-piece-coord
+  3 3 1  0 0 set-piece-coord
+  3 3 2  0 1 set-piece-coord
+  3 3 3  1 -1 set-piece-coord
+  
+  // Piece 4: J-piece (blue)
+  4 0 0 -1 0 set-piece-coord
+  4 0 1  0 0 set-piece-coord
+  4 0 2  1 0 set-piece-coord
+  4 0 3 -1 1 set-piece-coord
+  
+  4 1 0  0 -1 set-piece-coord
+  4 1 1  0 0 set-piece-coord
+  4 1 2  0 1 set-piece-coord
+  4 1 3  1 1 set-piece-coord
+  
+  4 2 0 -1 0 set-piece-coord
+  4 2 1  0 0 set-piece-coord
+  4 2 2  1 0 set-piece-coord
+  4 2 3  1 -1 set-piece-coord
+  
+  4 3 0  0 -1 set-piece-coord
+  4 3 1  0 0 set-piece-coord
+  4 3 2  0 1 set-piece-coord
+  4 3 3 -1 -1 set-piece-coord
+  
+  // Piece 5: S-piece (green)
+  5 0 0 -1 0 set-piece-coord
+  5 0 1  0 0 set-piece-coord
+  5 0 2  0 1 set-piece-coord
+  5 0 3  1 1 set-piece-coord
+  
+  5 1 0  0 1 set-piece-coord
+  5 1 1  0 0 set-piece-coord
+  5 1 2  1 0 set-piece-coord
+  5 1 3  1 -1 set-piece-coord
+  
+  5 0 2 clone-rotation
+  5 1 3 clone-rotation
+  
+  // Piece 6: Z-piece (red)
+  6 0 0  1 0 set-piece-coord
+  6 0 1  0 0 set-piece-coord
+  6 0 2  0 1 set-piece-coord
+  6 0 3 -1 1 set-piece-coord
+  
+  6 1 0  0 -1 set-piece-coord
+  6 1 1  0 0 set-piece-coord
+  6 1 2  1 0 set-piece-coord
+  6 1 3  1 1 set-piece-coord
+  
+  6 0 2 clone-rotation
+  6 1 3 clone-rotation
+;
+
+// --- Grid Storage & Helpers ---
+
+// Get cell value at (x, y)
+// ( x y -- val )
+: grid-get
+  10 * + 100 + @
+;
+
+// Set cell value at (x, y)
+// ( x y val -- )
+: grid-set
+  990 ! // val
+  10 * + 100 + // address
+  990 @ swap !
+;
+
+// Clear the grid to empty
+: init-grid
+  0 BEGIN dup 20 < WHILE
+    dup 989 ! // y
+    0 BEGIN dup 10 < WHILE
+      dup 988 ! // x
+      988 @ 989 @ 0 grid-set
+      1 +
+    REPEAT
+    pop
+    1 +
+  REPEAT
+  pop
+;
+
+// --- Collision Checking ---
+
+// Check if a piece collides at a hypothetical position/rotation
+// ( x y rotation -- bool )
+: check-collision-at
+  984 ! // rotation
+  983 ! // y
+  982 ! // x
+  
+  0 985 ! // collision flag = 0
+  
+  0 BEGIN dup 4 < WHILE
+    dup 981 ! // block index
+    
+    30 @ 984 @ 981 @ get-piece-coord // dx dy
+    983 @ + 980 ! // target y
+    982 @ + 979 ! // target x
+    
+    // Check boundaries
+    979 @ 0 <
+    979 @ 9 > +
+    980 @ 0 < + IF
+      1 985 ! // Collision!
+    ELSE
+      980 @ 20 < IF
+        979 @ 980 @ grid-get 0 > IF
+          1 985 ! // Collision!
+        THEN
+      THEN
+    THEN
+    
+    1 +
+  REPEAT
+  pop // pop loop counter
+  985 @ // push collision flag
+;
+
+// --- Piece Spawning & Locking ---
+
+: spawn-piece
+  // Load next piece into active slot
+  38 @ 30 !
+  0 31 ! // rotation = 0
+  4 32 ! // x = 4 (centered)
+  19 33 ! // y = 19 (top)
+  
+  // Choose random next piece using the animation cycle variable modulo 7
+  13 @ 7 mod 38 !
+  
+  // Immediately check collision on spawn to determine Game Over
+  32 @ 33 @ 31 @ check-collision-at IF
+    1 37 ! // Set Game Over flag to 1
+  THEN
+;
+
+// Shift all rows above 'y' downward, clearing row 19
+// ( y -- )
+: clear-and-shift-down
+  971 ! // target y
+  
+  971 @ BEGIN dup 19 < WHILE
+    dup 970 ! // current y
+    
+    // Copy row above to current row
+    0 BEGIN dup 10 < WHILE
+      dup 969 ! // x
+      969 @ 970 @ 1 + grid-get // val from row above
+      969 @ 970 @ rot grid-set // set to current row
+      1 +
+    REPEAT
+    pop // pop x
+    
+    1 +
+  REPEAT
+  pop // pop y
+  
+  // Clear the top row (19)
+  0 BEGIN dup 10 < WHILE
+    dup 969 !
+    969 @ 19 0 grid-set
+    1 +
+  REPEAT
+  pop
+;
+
+// Send highscore update packet back to the server
+: save-highscore
+  "/setprop me /sys/stackem_highscore " 39 @ to-str + send-line
+;
+
+// Scan the grid for complete lines, clear them, shift down, and update scores
+: check-lines
+  0 974 ! // count of lines cleared this scan
+  0 BEGIN dup 20 < WHILE
+    dup 973 ! // current y
+    
+    // Check if row is completely full
+    1 971 ! // is_full = 1
+    0 BEGIN dup 10 < WHILE
+      dup 972 ! // x
+      972 @ 973 @ grid-get 0 == IF
+        0 971 ! // empty cell found, is_full = 0
+      THEN
+      1 +
+    REPEAT
+    pop // pop x
+    
+    971 @ IF
+      // Line is full! Shift down.
+      973 @ clear-and-shift-down
+      974 @ 1 + 974 !
+      // Keep checking the same index because line above shifted down into it!
+      pop
+      973 @
+    ELSE
+      1 +
+    THEN
+  REPEAT
+  pop // pop y
+  
+  // Calculate score increments
+  974 @ 0 > IF
+    // 4 lines cleared = Tetris bonus
+    974 @ 4 == IF
+      36 @ 800 + 36 !
+    ELSE
+      36 @ 974 @ 100 * + 36 !
+    THEN
+    
+    // Check if new score exceeds high score
+    36 @ 39 @ > IF
+      36 @ 39 !
+      save-highscore
+    THEN
+  THEN
+;
+
+// Lock active piece into the static grid
+: lock-piece
+  0 BEGIN dup 4 < WHILE
+    dup 977 ! // block index
+    
+    30 @ 31 @ 977 @ get-piece-coord // dx dy
+    33 @ + 976 ! // y
+    32 @ + 975 ! // x
+    
+    // Write piece ID + 1 into the grid cell
+    976 @ 20 < IF
+      975 @ 976 @ 30 @ 1 + grid-set
+    THEN
+    
+    1 +
+  REPEAT
+  pop
+  
+  check-lines
+;
+
+// --- Gameplay Moves ---
+
+: move-left
+  32 @ 1 - 33 @ 31 @ check-collision-at 0 == IF
+    32 @ 1 - 32 !
+  THEN
+;
+
+: move-right
+  32 @ 1 + 33 @ 31 @ check-collision-at 0 == IF
+    32 @ 1 + 32 !
+  THEN
+;
+
+: rotate-piece
+  31 @ 1 + 4 mod 978 ! // target rotation
+  32 @ 33 @ 978 @ check-collision-at 0 == IF
+    978 @ 31 !
+  THEN
+;
+
+: move-down
+  32 @ 33 @ 1 - 31 @ check-collision-at 0 == IF
+    33 @ 1 - 33 !
+    0 // not locked
+  ELSE
+    lock-piece
+    spawn-piece
+    1 // locked
+  THEN
+;
+
+// --- Variables Initialization ---
+
+: init-vars
+  10 @ 0 == IF
+    1 10 ! // Init flag = 1
+    1 11 ! // Show grid = 1
+    0 13 ! // Animation cycle counter = 0
+    0 15 ! // Camera rotation angle = 0 degrees (front-facing)
+    
+    init-tetromino-table
+    init-grid
+    
+    // Randomize initial shapes
+    13 @ 7 mod 30 !
+    0 31 !
+    4 32 !
+    19 33 !
+    
+    13 @ 3 + 7 mod 38 !
+    
+    30 34 ! // Fall speed = 30 ticks
+    0 35 ! // Fall timer = 0
+    0 36 ! // Score = 0
+    0 37 ! // Game Over = 0
+    
+    // Server highscore placeholder (replaced on handshake compilation)
+    [HIGHSCORE] 39 !
+    
+    0 43 ! // Cooldown left
+    0 44 ! // Cooldown right
+    0 45 ! // Cooldown rotate
+    0 46 ! // Cooldown soft drop
+  THEN
+;
+
+// --- Gameplay Input & Timers ---
+
+: handle-input
+  // Decrement cooldown counters
+  43 @ 0 > IF 43 @ 1 - 43 ! THEN
+  44 @ 0 > IF 44 @ 1 - 44 ! THEN
+  45 @ 0 > IF 45 @ 1 - 45 ! THEN
+  46 @ 0 > IF 46 @ 1 - 46 ! THEN
+  
+  // Left: A (65) or Left Arrow (263)
+  263 key-down? 65 key-down? + IF
+    43 @ 0 == IF
+      move-left
+      15 43 ! // 15 frame cooldown (250 ms)
+    THEN
+  ELSE
+    0 43 !
+  THEN
+  
+  // Right: D (68) or Right Arrow (262)
+  262 key-down? 68 key-down? + IF
+    44 @ 0 == IF
+      move-right
+      15 44 ! // 15 frame cooldown (250 ms)
+    THEN
+  ELSE
+    0 44 !
+  THEN
+  
+  // Rotate: W (87) or R (82) or Up Arrow (265)
+  265 key-down? 87 key-down? + 82 key-down? + IF
+    45 @ 0 == IF
+      rotate-piece
+      15 45 ! // 15 frame cooldown (250 ms)
+    THEN
+  ELSE
+    0 45 !
+  THEN
+  
+  // Soft Drop: S (83) or Down Arrow (264)
+  264 key-down? 83 key-down? + IF
+    46 @ 0 == IF
+      move-down pop
+      3 46 ! // 3 frame cooldown (50 ms)
+    THEN
+  ELSE
+    0 46 !
+  THEN
+;
+
+: update-fall
+  35 @ 1 + 35 !
+  35 @ 34 @ >= IF
+    0 35 !
+    move-down pop
+  THEN
+;
+
+// --- Rendering Routines ---
+
+// Camera positioning
+: setup-camera
+  // x y z pitch yaw roll
+  0 -1 18 0 15 @ 0 set-camera
+;
+
+// Draw a single block in the 3D space
+// ( x y color_idx -- )
+: draw-block-3d
+  967 ! // color_idx
+  966 ! // y
+  965 ! // x
+  
+  // Center coordinates around (0,0) in 3D
+  965 @ 5 - 964 ! // X_3D
+  966 @ 10 - 963 ! // Y_3D
+  
+  // Map index to color mesh reference
+  967 @ 1 == IF "cube_cyan" ELSE
+  967 @ 2 == IF "cube_blue" ELSE
+  967 @ 3 == IF "cube_orange" ELSE
+  967 @ 4 == IF "cube_yellow" ELSE
+  967 @ 5 == IF "cube_green" ELSE
+  967 @ 6 == IF "cube_magenta" ELSE
+  "cube_red"
+  THEN THEN THEN THEN THEN THEN
+  
+  964 @ 963 @ 0 0 0 0 draw-mesh
+;
+
+// Draw the static locked board in 3D
+: draw-grid-3d
+  0 BEGIN dup 20 < WHILE
+    dup 959 ! // y
+    0 BEGIN dup 10 < WHILE
+      dup 958 ! // x
+      
+      958 @ 959 @ grid-get 957 !
+      957 @ 0 > IF
+        958 @ 959 @ 957 @ draw-block-3d
+      THEN
+      
+      1 +
+    REPEAT
+    pop
+    1 +
+  REPEAT
+  pop
+;
+
+// Draw the active dropping tetromino in 3D
+: draw-active-piece-3d
+  0 BEGIN dup 4 < WHILE
+    dup 962 ! // block index
+    
+    30 @ 31 @ 962 @ get-piece-coord // dx dy
+    33 @ + 961 ! // y
+    32 @ + 960 ! // x
+    
+    // Draw only if block fits grid space
+    960 @ 0 >= 960 @ 10 < * 961 @ 0 >= * 961 @ 20 < * IF
+      960 @ 961 @ 30 @ 1 + draw-block-3d
+    THEN
+    
+    1 +
+  REPEAT
+  pop
+;
+
+// Draw left/right columns and bottom board edge to frame the Tetris matrix in 3D
+: draw-frame-3d
+  // Left column (X = -6)
+  -11 BEGIN dup 10 < WHILE
+    dup 968 !
+    "cube" -6 968 @ 0 0 0 0 draw-mesh
+    1 +
+  REPEAT
+  pop
+  
+  // Right column (X = 5)
+  -11 BEGIN dup 10 < WHILE
+    dup 968 !
+    "cube" 5 968 @ 0 0 0 0 draw-mesh
+    1 +
+  REPEAT
+  pop
+  
+  // Bottom row (Y = -11)
+  -6 BEGIN dup 6 < WHILE
+    dup 968 !
+    "cube" 968 @ -11 0 0 0 0 draw-mesh
+    1 +
+  REPEAT
+  pop
+;
+
+// Float the next upcoming shape in 3D space on the right side of the screen
+: draw-next-piece-3d
+  0 BEGIN dup 4 < WHILE
+    dup 956 !
+    // Retrieve coordinates for next piece (rotation = 0)
+    38 @ 0 956 @ get-piece-coord // dx dy
+    swap 11 + swap -6 + // dx+11 dy-6
+    
+    // Map colors to next piece mesh
+    38 @ 1 == IF "cube_yellow" ELSE
+    38 @ 2 == IF "cube_magenta" ELSE
+    38 @ 3 == IF "cube_orange" ELSE
+    38 @ 4 == IF "cube_blue" ELSE
+    38 @ 5 == IF "cube_green" ELSE
+    38 @ 6 == IF "cube_red" ELSE
+    "cube_cyan"
+    THEN THEN THEN THEN THEN THEN
+    
+    rot rot
+    
+    0 0 0 0 draw-mesh
+    1 +
+  REPEAT
+  pop
+;
+
+// --- Interface/GUI Routines ---
+
+: draw-gui
+  // 1. Stats and Score Deck Panel (Left)
+  100 150 400 600 "Stack 'em - Score Deck" ui-panel
+  
+  130 220 "title" "STACK 'EM (3D TETRIS)" ui-text
+  130 260 "yellow" "Player: [PLAYERNAME]" ui-text
+  130 300 "accent" "Score: " ui-text
+  220 300 "accent" 36 @ to-str ui-text
+  130 340 "green" "High Score: " ui-text
+  270 340 "green" 39 @ to-str ui-text
+  
+  37 @ 1 == IF
+    130 420 "red" "GAME OVER!" ui-text
+    130 460 340 45 "RESTART GAME" ui-button IF
+      init-grid
+      0 36 !
+      0 37 !
+      13 @ 7 mod 30 !
+      13 @ 3 + 7 mod 38 !
+      4 32 !
+      19 33 !
+      0 31 !
+    THEN
+  ELSE
+    130 420 "green" "STATUS: ACTIVE" ui-text
+  THEN
+  
+  130 540 "accent" "CONTROLS:" ui-text
+  130 570 "yellow" "A / D / Left / Right : Move" ui-text
+  130 600 "yellow" "W / R / Up : Rotate" ui-text
+  130 630 "yellow" "S / Down : Drop" ui-text
+  
+  // 2. Control and camera deck panel (Right)
+  1100 150 400 600 "Camera & Game Controls" ui-panel
+  
+  1130 220 "title" "BOARD CONTROLS" ui-text
+  
+  // Panning buttons
+  1130 300 160 35 "Rotate Left" ui-button IF
+    15 @ 5 - 360 mod 15 !
+  THEN
+  1310 300 160 35 "Rotate Right" ui-button IF
+    15 @ 5 + 360 mod 15 !
+  THEN
+  
+  1130 350 340 35 "Reset Camera View" ui-button IF
+    15 15 !
+  THEN
+  
+  1130 400 340 35 "Toggle Auto-Rotation" ui-button IF
+    14 @ 1 == IF 0 14 ! ELSE 1 14 ! THEN
+  THEN
+  
+  14 @ 1 == IF
+    1130 450 "green" "Auto-Rotation: ACTIVE" ui-text
+  ELSE
+    1130 450 "red" "Auto-Rotation: INACTIVE" ui-text
+  THEN
+  
+  // Next piece label
+  1130 520 "yellow" "UPCOMING PIECE:" ui-text
+  
+  1130 650 340 35 "Return to Main Menu" ui-button IF
+    "/play menu" send-line
+  THEN
+  
+  1130 700 "accent" "Press ESC to return to login / exit." ui-text
+;
+
+// --- Main Program Entry Loop ---
+
+: main
+  init-vars
+  
+  // Update cycle/animation counters
+  13 @ 1 + 13000 mod 13 !
+  
+  // Handle panning camera
+  14 @ 1 == IF
+    // Slowly cycle camera angle between -15 and 15 degrees
+    13 @ 30 / 30 mod 15 - 15 !
+  THEN
+  
+  // Run main gameplay logic if game is not over
+  37 @ 0 == IF
+    handle-input
+    update-fall
+  THEN
+  
+  // Render everything
+  setup-camera
+  draw-grid-3d
+  37 @ 0 == IF
+    draw-active-piece-3d
+  THEN
+  draw-frame-3d
+  draw-next-piece-3d
+  draw-gui
+;
