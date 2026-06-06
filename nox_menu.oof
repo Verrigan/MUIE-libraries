@@ -4,6 +4,8 @@
 ;
 
 // --- Variable slot definitions ---
+// NOTE: Memory slots 10-15 are reserved/shared with the client/server system
+// for system-level graphics, configuration, and state maintenance (e.g., slot 11 is read by NoxClient for grid state).
 : init_flag 10 ;
 : show_grid 11 ;
 : rotation_angle 13 ;

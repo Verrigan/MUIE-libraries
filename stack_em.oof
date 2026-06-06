@@ -14,6 +14,8 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 ;
 
 // --- Variable slot definitions ---
+// NOTE: Memory slots 10-15 (and other specific slots) are reserved/shared with the client/server system
+// for system-level graphics, configuration, and state maintenance (e.g., slot 11 is read by NoxClient for grid state).
 : init_flag 10 ;
 : show_grid 11 ;
 : anim_cycle 13 ;
