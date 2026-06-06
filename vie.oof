@@ -768,7 +768,6 @@ help guides, and redirects player input mode to vie_loop.
       dup "lns" 3 parse-rc-val to-str me "/.vie/theme/lns" rot setprop pop
       "gutter" 3 parse-rc-val to-str me "/.vie/theme/gutter" rot setprop pop
     THEN
-  THEN
 ;
 
 : get-syntax-rules // ( line_num -- rules )
