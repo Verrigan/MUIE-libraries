@@ -10,38 +10,46 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
   over over / * -
 ;
 
+// --- Variable slot definitions ---
+: init_flag 10 ;
+: show_grid 11 ;
+: show_shapes 12 ;
+: shape_angle 13 ;
+: camera_auto_rotate 14 ;
+: camera_angle 15 ;
+
 : init-vars
-  10 @ 0 == IF
-    1 10 ! // Set init flag to 1
-    1 11 ! // Show 3D Grid = 1
-    1 12 ! // Show Cube = 1
-    0 13 ! // Cube angle = 0
-    1 14 ! // Camera auto-rotate = 1
-    0 15 ! // Camera angle = 0
+  init_flag @ 0 == IF
+    1 init_flag !
+    1 show_grid !
+    1 show_shapes !
+    0 shape_angle !
+    1 camera_auto_rotate !
+    0 camera_angle !
   THEN
 ;
 
 : update-animation
   // Increment cube rotation angle
-  13 @ 2 + 360 mod 13 !
+  shape_angle @ 2 + 360 mod shape_angle !
   
   // If camera auto-rotate is active, increment camera angle
-  14 @ 1 == IF
-    15 @ 1 + 360 mod 15 !
+  camera_auto_rotate @ 1 == IF
+    camera_angle @ 1 + 360 mod camera_angle !
   THEN
 ;
 
 : setup-camera
   // Camera transform: x y z pitch yaw roll
-  0 2 6 -15 15 @ 0 set-camera
+  0 2 6 -15 camera_angle @ 0 set-camera
 ;
 
 : draw-3d-scene
   // Draw rotating cube and pyramids at coordinates if active
-  12 @ 1 == IF
-    "cube" 0 0 0 13 @ 13 @ 0 draw-mesh
-    "pyramid" 2 0 -2 0 13 @ 0 draw-mesh
-    "pyramid" -2 0 -2 0 13 @ 0 draw-mesh
+  show_shapes @ 1 == IF
+    "cube" 0 0 0 shape_angle @ shape_angle @ 0 draw-mesh
+    "pyramid" 2 0 -2 0 shape_angle @ 0 draw-mesh
+    "pyramid" -2 0 -2 0 shape_angle @ 0 draw-mesh
   THEN
 ;
 
@@ -54,11 +62,11 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
   
   // Button 1: Toggle Grid
   570 340 300 35 "Toggle 3D Grid" ui-button IF
-    11 @ 1 == IF 0 11 ! ELSE 1 11 ! THEN
+    show_grid @ 1 == IF 0 show_grid ! ELSE 1 show_grid ! THEN
   THEN
   
   // Grid status text
-  11 @ 1 == IF
+  show_grid @ 1 == IF
     890 350 "green" "ACTIVE" ui-text
   ELSE
     890 350 "red" "INACTIVE" ui-text
@@ -66,11 +74,11 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
 
   // Button 2: Toggle Rotating Cube
   570 390 300 35 "Toggle 3D Shapes" ui-button IF
-    12 @ 1 == IF 0 12 ! ELSE 1 12 ! THEN
+    show_shapes @ 1 == IF 0 show_shapes ! ELSE 1 show_shapes ! THEN
   THEN
 
   // Shapes status text
-  12 @ 1 == IF
+  show_shapes @ 1 == IF
     890 400 "green" "ACTIVE" ui-text
   ELSE
     890 400 "red" "INACTIVE" ui-text
@@ -78,11 +86,11 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
 
   // Button 3: Toggle Camera Auto-Rotate
   570 440 300 35 "Toggle Camera Rotation" ui-button IF
-    14 @ 1 == IF 0 14 ! ELSE 1 14 ! THEN
+    camera_auto_rotate @ 1 == IF 0 camera_auto_rotate ! ELSE 1 camera_auto_rotate ! THEN
   THEN
 
   // Camera status text
-  14 @ 1 == IF
+  camera_auto_rotate @ 1 == IF
     890 450 "green" "ACTIVE" ui-text
   ELSE
     890 450 "red" "INACTIVE" ui-text
@@ -90,7 +98,7 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
 
   // Display Camera angle info
   570 495 "yellow" "Camera Angle: " ui-text
-  720 495 "yellow" 15 @ to-str ui-text
+  720 495 "yellow" camera_angle @ to-str ui-text
   
   570 540 300 35 "Return to Main Menu" ui-button IF
     "/play menu" send-line

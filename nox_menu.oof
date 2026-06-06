@@ -3,16 +3,21 @@
   over over / * -
 ;
 
+// --- Variable slot definitions ---
+: init_flag 10 ;
+: show_grid 11 ;
+: rotation_angle 13 ;
+
 : init-vars
-  10 @ 0 == IF
-    1 10 ! // Set init flag to 1
-    1 11 ! // Show grid = 1
-    0 13 ! // Rotation angle = 0
+  init_flag @ 0 == IF
+    1 init_flag !
+    1 show_grid !
+    0 rotation_angle !
   THEN
 ;
 
 : update-animation
-  13 @ 2 + 360 mod 13 !
+  rotation_angle @ 2 + 360 mod rotation_angle !
 ;
 
 : draw-gui
@@ -44,11 +49,11 @@
   update-animation
   
   // Slowly rotate camera around the background scene
-  0 2 10 -15 13 @ 0 set-camera
+  0 2 10 -15 rotation_angle @ 0 set-camera
   
   // Draw rotating shapes in background
-  "cube" -3 1 -2 13 @ 13 @ 0 draw-mesh
-  "pyramid" 3 1 -2 0 13 @ 0 draw-mesh
+  "cube" -3 1 -2 rotation_angle @ rotation_angle @ 0 draw-mesh
+  "pyramid" 3 1 -2 0 rotation_angle @ 0 draw-mesh
   
   draw-gui
 ;

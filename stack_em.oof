@@ -13,55 +13,126 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   over over / * -
 ;
 
+// --- Variable slot definitions ---
+: init_flag 10 ;
+: show_grid 11 ;
+: anim_cycle 13 ;
+: camera_auto_rotate 14 ;
+: camera_angle 15 ;
+
+// Gameplay variables
+: active_piece_type 30 ;
+: active_piece_rot 31 ;
+: active_piece_x 32 ;
+: active_piece_y 33 ;
+: fall_speed 34 ;
+: fall_timer 35 ;
+: score 36 ;
+: game_over 37 ;
+: next_piece_type 38 ;
+: highscore 39 ;
+
+// Cooldown variables
+: cooldown_left 43 ;
+: cooldown_right 44 ;
+: cooldown_rotate 45 ;
+: cooldown_soft_drop 46 ;
+
+// Temp variables
+: temp_dy 995 ;
+: temp_dx 996 ;
+: temp_block 997 ;
+: temp_rotation 998 ;
+: temp_piece 999 ;
+: temp_base_addr 9000 ;
+: temp_dest_rot 991 ;
+: temp_src_rot 992 ;
+: temp_piece_clone 993 ;
+: temp_block_clone 994 ;
+: temp_grid_val 990 ;
+: temp_init_y 989 ;
+: temp_init_x 988 ;
+: temp_coll_rotation 984 ;
+: temp_coll_y 983 ;
+: temp_coll_x 982 ;
+: temp_coll_flag 985 ;
+: temp_coll_block 981 ;
+: temp_coll_target_y 980 ;
+: temp_coll_target_x 979 ;
+: temp_shift_target_y 971 ;
+: temp_shift_current_y 970 ;
+: temp_shift_x 969 ;
+: temp_lines_cleared 974 ;
+: temp_lines_y 973 ;
+: temp_lines_is_full 971 ;
+: temp_lines_x 972 ;
+: temp_rotate_target 978 ;
+: temp_lock_block 977 ;
+: temp_lock_y 976 ;
+: temp_lock_x 975 ;
+: temp_draw_color 967 ;
+: temp_draw_y 966 ;
+: temp_draw_x 965 ;
+: temp_draw_x3d 964 ;
+: temp_draw_y3d 963 ;
+: temp_active_block 962 ;
+: temp_active_y 961 ;
+: temp_active_x 960 ;
+: temp_frame_loop 968 ;
+: temp_next_block 956 ;
+: temp_grid3d_y 959 ;
+: temp_grid3d_x 958 ;
+: temp_grid3d_val 957 ;
+
 // Write coordinates to the tetromino shape table in the heap
 // ( piece rotation block dx dy -- )
 : set-piece-coord
-  995 ! // dy
-  996 ! // dx
-  997 ! // block
-  998 ! // rotation
-  999 ! // piece
+  temp_dy ! // dy
+  temp_dx ! // dx
+  temp_block ! // block
+  temp_rotation ! // rotation
+  temp_piece ! // piece
   
   // calculate base heap address
-  999 @ 32 *
-  998 @ 8 * +
-  997 @ 2 * +
-  9000 ! // base address
+  temp_piece @ 32 *
+  temp_rotation @ 8 * +
+  temp_block @ 2 * +
+  temp_base_addr ! // base address
   
   // Store offset shifted by +2 to avoid negative values in heap-!
-  996 @ 2 + 9000 @ heap-!
-  995 @ 2 + 9000 @ 1 + heap-!
+  temp_dx @ 2 + temp_base_addr @ heap-!
+  temp_dy @ 2 + temp_base_addr @ 1 + heap-!
 ;
 
 // Retrieve coordinates from the tetromino shape table in the heap
 // ( piece rotation block -- dx dy )
 : get-piece-coord
-  997 ! // block
-  998 ! // rotation
-  999 ! // piece
+  temp_block ! // block
+  temp_rotation ! // rotation
+  temp_piece ! // piece
   
-  999 @ 32 *
-  998 @ 8 * +
-  997 @ 2 * +
-  9000 !
+  temp_piece @ 32 *
+  temp_rotation @ 8 * +
+  temp_block @ 2 * +
+  temp_base_addr !
   
-  9000 @ heap-@ 2 -
-  9000 @ 1 + heap-@ 2 -
+  temp_base_addr @ heap-@ 2 -
+  temp_base_addr @ 1 + heap-@ 2 -
 ;
 
 // Helper to copy a piece's rotation coordinates to another rotation slot
 // ( piece src_rot dest_rot -- )
 : clone-rotation
-  991 ! // dest_rot
-  992 ! // src_rot
-  993 ! // piece
+  temp_dest_rot ! // dest_rot
+  temp_src_rot ! // src_rot
+  temp_piece_clone ! // piece
   
   0 BEGIN dup 4 < WHILE
-    dup 994 ! // block
-    993 @ 992 @ 994 @ get-piece-coord
-    995 ! // dy
-    996 ! // dx
-    993 @ 991 @ 994 @ 996 @ 995 @ set-piece-coord
+    dup temp_block_clone ! // block
+    temp_piece_clone @ temp_src_rot @ temp_block_clone @ get-piece-coord
+    temp_dy ! // dy
+    temp_dx ! // dx
+    temp_piece_clone @ temp_dest_rot @ temp_block_clone @ temp_dx @ temp_dy @ set-piece-coord
     1 +
   REPEAT
   pop
@@ -200,18 +271,18 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // Set cell value at (x, y)
 // ( x y val -- )
 : grid-set
-  990 ! // val
+  temp_grid_val ! // val
   10 * + 100 + // address
-  990 @ swap !
+  temp_grid_val @ swap !
 ;
 
 // Clear the grid to empty
 : init-grid
   0 BEGIN dup 20 < WHILE
-    dup 989 ! // y
+    dup temp_init_y ! // y
     0 BEGIN dup 10 < WHILE
-      dup 988 ! // x
-      988 @ 989 @ 0 grid-set
+      dup temp_init_x ! // x
+      temp_init_x @ temp_init_y @ 0 grid-set
       1 +
     REPEAT
     pop
@@ -225,28 +296,28 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // Check if a piece collides at a hypothetical position/rotation
 // ( x y rotation -- bool )
 : check-collision-at
-  984 ! // rotation
-  983 ! // y
-  982 ! // x
+  temp_coll_rotation ! // rotation
+  temp_coll_y ! // y
+  temp_coll_x ! // x
   
-  0 985 ! // collision flag = 0
+  0 temp_coll_flag ! // collision flag = 0
   
   0 BEGIN dup 4 < WHILE
-    dup 981 ! // block index
+    dup temp_coll_block ! // block index
     
-    30 @ 984 @ 981 @ get-piece-coord // dx dy
-    983 @ + 980 ! // target y
-    982 @ + 979 ! // target x
+    active_piece_type @ temp_coll_rotation @ temp_coll_block @ get-piece-coord // dx dy
+    temp_coll_y @ + temp_coll_target_y ! // target y
+    temp_coll_x @ + temp_coll_target_x ! // target x
     
     // Check boundaries
-    979 @ 0 <
-    979 @ 9 > +
-    980 @ 0 < + IF
-      1 985 ! // Collision!
+    temp_coll_target_x @ 0 <
+    temp_coll_target_x @ 9 > +
+    temp_coll_target_y @ 0 < + IF
+      1 temp_coll_flag ! // Collision!
     ELSE
-      980 @ 20 < IF
-        979 @ 980 @ grid-get 0 > IF
-          1 985 ! // Collision!
+      temp_coll_target_y @ 20 < IF
+        temp_coll_target_x @ temp_coll_target_y @ grid-get 0 > IF
+          1 temp_coll_flag ! // Collision!
         THEN
       THEN
     THEN
@@ -254,40 +325,40 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
     1 +
   REPEAT
   pop // pop loop counter
-  985 @ // push collision flag
+  temp_coll_flag @ // push collision flag
 ;
 
 // --- Piece Spawning & Locking ---
 
 : spawn-piece
   // Load next piece into active slot
-  38 @ 30 !
-  0 31 ! // rotation = 0
-  4 32 ! // x = 4 (centered)
-  19 33 ! // y = 19 (top)
+  next_piece_type @ active_piece_type !
+  0 active_piece_rot ! // rotation = 0
+  4 active_piece_x ! // x = 4 (centered)
+  19 active_piece_y ! // y = 19 (top)
   
   // Choose random next piece using the animation cycle variable modulo 7
-  13 @ 7 mod 38 !
+  anim_cycle @ 7 mod next_piece_type !
   
   // Immediately check collision on spawn to determine Game Over
-  32 @ 33 @ 31 @ check-collision-at IF
-    1 37 ! // Set Game Over flag to 1
+  active_piece_x @ active_piece_y @ active_piece_rot @ check-collision-at IF
+    1 game_over ! // Set Game Over flag to 1
   THEN
 ;
 
 // Shift all rows above 'y' downward, clearing row 19
 // ( y -- )
 : clear-and-shift-down
-  971 ! // target y
+  temp_shift_target_y ! // target y
   
-  971 @ BEGIN dup 19 < WHILE
-    dup 970 ! // current y
+  temp_shift_target_y @ BEGIN dup 19 < WHILE
+    dup temp_shift_current_y ! // current y
     
     // Copy row above to current row
     0 BEGIN dup 10 < WHILE
-      dup 969 ! // x
-      969 @ 970 @ 1 + grid-get // val from row above
-      969 @ 970 @ rot grid-set // set to current row
+      dup temp_shift_x ! // x
+      temp_shift_x @ temp_shift_current_y @ 1 + grid-get // val from row above
+      temp_shift_x @ temp_shift_current_y @ rot grid-set // set to current row
       1 +
     REPEAT
     pop // pop x
@@ -298,8 +369,8 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   
   // Clear the top row (19)
   0 BEGIN dup 10 < WHILE
-    dup 969 !
-    969 @ 19 0 grid-set
+    dup temp_shift_x !
+    temp_shift_x @ 19 0 grid-set
     1 +
   REPEAT
   pop
@@ -307,33 +378,33 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 
 // Send highscore update packet back to the server
 : save-highscore
-  "/setprop me /sys/stackem_highscore " 39 @ to-str + send-line
+  "/setprop me /sys/stackem_highscore " highscore @ to-str + send-line
 ;
 
 // Scan the grid for complete lines, clear them, shift down, and update scores
 : check-lines
-  0 974 ! // count of lines cleared this scan
+  0 temp_lines_cleared ! // count of lines cleared this scan
   0 BEGIN dup 20 < WHILE
-    dup 973 ! // current y
+    dup temp_lines_y ! // current y
     
     // Check if row is completely full
-    1 971 ! // is_full = 1
+    1 temp_lines_is_full ! // is_full = 1
     0 BEGIN dup 10 < WHILE
-      dup 972 ! // x
-      972 @ 973 @ grid-get 0 == IF
-        0 971 ! // empty cell found, is_full = 0
+      dup temp_lines_x ! // x
+      temp_lines_x @ temp_lines_y @ grid-get 0 == IF
+        0 temp_lines_is_full ! // empty cell found, is_full = 0
       THEN
       1 +
     REPEAT
     pop // pop x
     
-    971 @ IF
+    temp_lines_is_full @ IF
       // Line is full! Shift down.
-      973 @ clear-and-shift-down
-      974 @ 1 + 974 !
+      temp_lines_y @ clear-and-shift-down
+      temp_lines_cleared @ 1 + temp_lines_cleared !
       // Keep checking the same index because line above shifted down into it!
       pop
-      973 @
+      temp_lines_y @
     ELSE
       1 +
     THEN
@@ -341,17 +412,17 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   pop // pop y
   
   // Calculate score increments
-  974 @ 0 > IF
+  temp_lines_cleared @ 0 > IF
     // 4 lines cleared = Tetris bonus
-    974 @ 4 == IF
-      36 @ 800 + 36 !
+    temp_lines_cleared @ 4 == IF
+      score @ 800 + score !
     ELSE
-      36 @ 974 @ 100 * + 36 !
+      score @ temp_lines_cleared @ 100 * + score !
     THEN
     
     // Check if new score exceeds high score
-    36 @ 39 @ > IF
-      36 @ 39 !
+    score @ highscore @ > IF
+      score @ highscore !
       save-highscore
     THEN
   THEN
@@ -360,15 +431,15 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // Lock active piece into the static grid
 : lock-piece
   0 BEGIN dup 4 < WHILE
-    dup 977 ! // block index
+    dup temp_lock_block ! // block index
     
-    30 @ 31 @ 977 @ get-piece-coord // dx dy
-    33 @ + 976 ! // y
-    32 @ + 975 ! // x
+    active_piece_type @ active_piece_rot @ temp_lock_block @ get-piece-coord // dx dy
+    active_piece_y @ + temp_lock_y ! // y
+    active_piece_x @ + temp_lock_x ! // x
     
     // Write piece ID + 1 into the grid cell
-    976 @ 20 < IF
-      975 @ 976 @ 30 @ 1 + grid-set
+    temp_lock_y @ 20 < IF
+      temp_lock_x @ temp_lock_y @ active_piece_type @ 1 + grid-set
     THEN
     
     1 +
@@ -381,27 +452,27 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // --- Gameplay Moves ---
 
 : move-left
-  32 @ 1 - 33 @ 31 @ check-collision-at 0 == IF
-    32 @ 1 - 32 !
+  active_piece_x @ 1 - active_piece_y @ active_piece_rot @ check-collision-at 0 == IF
+    active_piece_x @ 1 - active_piece_x !
   THEN
 ;
 
 : move-right
-  32 @ 1 + 33 @ 31 @ check-collision-at 0 == IF
-    32 @ 1 + 32 !
+  active_piece_x @ 1 + active_piece_y @ active_piece_rot @ check-collision-at 0 == IF
+    active_piece_x @ 1 + active_piece_x !
   THEN
 ;
 
 : rotate-piece
-  31 @ 1 + 4 mod 978 ! // target rotation
-  32 @ 33 @ 978 @ check-collision-at 0 == IF
-    978 @ 31 !
+  active_piece_rot @ 1 + 4 mod temp_rotate_target ! // target rotation
+  active_piece_x @ active_piece_y @ temp_rotate_target @ check-collision-at 0 == IF
+    temp_rotate_target @ active_piece_rot !
   THEN
 ;
 
 : move-down
-  32 @ 33 @ 1 - 31 @ check-collision-at 0 == IF
-    33 @ 1 - 33 !
+  active_piece_x @ active_piece_y @ 1 - active_piece_rot @ check-collision-at 0 == IF
+    active_piece_y @ 1 - active_piece_y !
     0 // not locked
   ELSE
     lock-piece
@@ -413,35 +484,36 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // --- Variables Initialization ---
 
 : init-vars
-  10 @ 0 == IF
-    1 10 ! // Init flag = 1
-    1 11 ! // Show grid = 1
-    0 13 ! // Animation cycle counter = 0
-    0 15 ! // Camera rotation angle = 0 degrees (front-facing)
+  init_flag @ 0 == IF
+    1 init_flag ! // Init flag = 1
+    1 show_grid ! // Show grid = 1
+    0 anim_cycle ! // Animation cycle counter = 0
+    0 camera_auto_rotate ! // Auto camera rotation = 0
+    0 camera_angle ! // Camera rotation angle = 0 degrees (front-facing)
     
     init-tetromino-table
     init-grid
     
     // Randomize initial shapes
-    13 @ 7 mod 30 !
-    0 31 !
-    4 32 !
-    19 33 !
+    anim_cycle @ 7 mod active_piece_type !
+    0 active_piece_rot !
+    4 active_piece_x !
+    19 active_piece_y !
     
-    13 @ 3 + 7 mod 38 !
+    anim_cycle @ 3 + 7 mod next_piece_type !
     
-    30 34 ! // Fall speed = 30 ticks
-    0 35 ! // Fall timer = 0
-    0 36 ! // Score = 0
-    0 37 ! // Game Over = 0
+    30 fall_speed ! // Fall speed = 30 ticks
+    0 fall_timer ! // Fall timer = 0
+    0 score ! // Score = 0
+    0 game_over ! // Game Over = 0
     
     // Server highscore placeholder (replaced on handshake compilation)
-    [HIGHSCORE] 39 !
+    [HIGHSCORE] highscore !
     
-    0 43 ! // Cooldown left
-    0 44 ! // Cooldown right
-    0 45 ! // Cooldown rotate
-    0 46 ! // Cooldown soft drop
+    0 cooldown_left ! // Cooldown left
+    0 cooldown_right ! // Cooldown right
+    0 cooldown_rotate ! // Cooldown rotate
+    0 cooldown_soft_drop ! // Cooldown soft drop
   THEN
 ;
 
@@ -449,56 +521,56 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 
 : handle-input
   // Decrement cooldown counters
-  43 @ 0 > IF 43 @ 1 - 43 ! THEN
-  44 @ 0 > IF 44 @ 1 - 44 ! THEN
-  45 @ 0 > IF 45 @ 1 - 45 ! THEN
-  46 @ 0 > IF 46 @ 1 - 46 ! THEN
+  cooldown_left @ 0 > IF cooldown_left @ 1 - cooldown_left ! THEN
+  cooldown_right @ 0 > IF cooldown_right @ 1 - cooldown_right ! THEN
+  cooldown_rotate @ 0 > IF cooldown_rotate @ 1 - cooldown_rotate ! THEN
+  cooldown_soft_drop @ 0 > IF cooldown_soft_drop @ 1 - cooldown_soft_drop ! THEN
   
   // Left: A (65) or Left Arrow (263)
   263 key-down? 65 key-down? + IF
-    43 @ 0 == IF
+    cooldown_left @ 0 == IF
       move-left
-      15 43 ! // 15 frame cooldown (250 ms)
+      15 cooldown_left ! // 15 frame cooldown (250 ms)
     THEN
   ELSE
-    0 43 !
+    0 cooldown_left !
   THEN
   
   // Right: D (68) or Right Arrow (262)
   262 key-down? 68 key-down? + IF
-    44 @ 0 == IF
+    cooldown_right @ 0 == IF
       move-right
-      15 44 ! // 15 frame cooldown (250 ms)
+      15 cooldown_right ! // 15 frame cooldown (250 ms)
     THEN
   ELSE
-    0 44 !
+    0 cooldown_right !
   THEN
   
   // Rotate: W (87) or R (82) or Up Arrow (265)
   265 key-down? 87 key-down? + 82 key-down? + IF
-    45 @ 0 == IF
+    cooldown_rotate @ 0 == IF
       rotate-piece
-      15 45 ! // 15 frame cooldown (250 ms)
+      15 cooldown_rotate ! // 15 frame cooldown (250 ms)
     THEN
   ELSE
-    0 45 !
+    0 cooldown_rotate !
   THEN
   
   // Soft Drop: S (83) or Down Arrow (264)
   264 key-down? 83 key-down? + IF
-    46 @ 0 == IF
+    cooldown_soft_drop @ 0 == IF
       move-down pop
-      3 46 ! // 3 frame cooldown (50 ms)
+      3 cooldown_soft_drop ! // 3 frame cooldown (50 ms)
     THEN
   ELSE
-    0 46 !
+    0 cooldown_soft_drop !
   THEN
 ;
 
 : update-fall
-  35 @ 1 + 35 !
-  35 @ 34 @ >= IF
-    0 35 !
+  fall_timer @ 1 + fall_timer !
+  fall_timer @ fall_speed @ >= IF
+    0 fall_timer !
     move-down pop
   THEN
 ;
@@ -508,43 +580,43 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // Camera positioning
 : setup-camera
   // x y z pitch yaw roll
-  0 -1 18 0 15 @ 0 set-camera
+  0 -1 18 0 camera_angle @ 0 set-camera
 ;
 
 // Draw a single block in the 3D space
 // ( x y color_idx -- )
 : draw-block-3d
-  967 ! // color_idx
-  966 ! // y
-  965 ! // x
+  temp_draw_color ! // color_idx
+  temp_draw_y ! // y
+  temp_draw_x ! // x
   
   // Center coordinates around (0,0) in 3D
-  965 @ 5 - 964 ! // X_3D
-  966 @ 10 - 963 ! // Y_3D
+  temp_draw_x @ 5 - temp_draw_x3d ! // X_3D
+  temp_draw_y @ 10 - temp_draw_y3d ! // Y_3D
   
   // Map index to color mesh reference
-  967 @ 1 == IF "cube_cyan" ELSE
-  967 @ 2 == IF "cube_blue" ELSE
-  967 @ 3 == IF "cube_orange" ELSE
-  967 @ 4 == IF "cube_yellow" ELSE
-  967 @ 5 == IF "cube_green" ELSE
-  967 @ 6 == IF "cube_magenta" ELSE
+  temp_draw_color @ 1 == IF "cube_cyan" ELSE
+  temp_draw_color @ 2 == IF "cube_blue" ELSE
+  temp_draw_color @ 3 == IF "cube_orange" ELSE
+  temp_draw_color @ 4 == IF "cube_yellow" ELSE
+  temp_draw_color @ 5 == IF "cube_green" ELSE
+  temp_draw_color @ 6 == IF "cube_magenta" ELSE
   "cube_red"
   THEN THEN THEN THEN THEN THEN
   
-  964 @ 963 @ 0 0 0 0 draw-mesh
+  temp_draw_x3d @ temp_draw_y3d @ 0 0 0 0 draw-mesh
 ;
 
 // Draw the static locked board in 3D
 : draw-grid-3d
   0 BEGIN dup 20 < WHILE
-    dup 959 ! // y
+    dup temp_grid3d_y ! // y
     0 BEGIN dup 10 < WHILE
-      dup 958 ! // x
+      dup temp_grid3d_x ! // x
       
-      958 @ 959 @ grid-get 957 !
-      957 @ 0 > IF
-        958 @ 959 @ 957 @ draw-block-3d
+      temp_grid3d_x @ temp_grid3d_y @ grid-get temp_grid3d_val !
+      temp_grid3d_val @ 0 > IF
+        temp_grid3d_x @ temp_grid3d_y @ temp_grid3d_val @ draw-block-3d
       THEN
       
       1 +
@@ -558,15 +630,15 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // Draw the active dropping tetromino in 3D
 : draw-active-piece-3d
   0 BEGIN dup 4 < WHILE
-    dup 962 ! // block index
+    dup temp_active_block ! // block index
     
-    30 @ 31 @ 962 @ get-piece-coord // dx dy
-    33 @ + 961 ! // y
-    32 @ + 960 ! // x
+    active_piece_type @ active_piece_rot @ temp_active_block @ get-piece-coord // dx dy
+    active_piece_y @ + temp_active_y ! // y
+    active_piece_x @ + temp_active_x ! // x
     
     // Draw only if block fits grid space
-    960 @ 0 >= 960 @ 10 < * 961 @ 0 >= * 961 @ 20 < * IF
-      960 @ 961 @ 30 @ 1 + draw-block-3d
+    temp_active_x @ 0 >= temp_active_x @ 10 < * temp_active_y @ 0 >= * temp_active_y @ 20 < * IF
+      temp_active_x @ temp_active_y @ active_piece_type @ 1 + draw-block-3d
     THEN
     
     1 +
@@ -578,24 +650,24 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 : draw-frame-3d
   // Left column (X = -6)
   -11 BEGIN dup 10 < WHILE
-    dup 968 !
-    "cube" -6 968 @ 0 0 0 0 draw-mesh
+    dup temp_frame_loop !
+    "cube" -6 temp_frame_loop @ 0 0 0 0 draw-mesh
     1 +
   REPEAT
   pop
   
   // Right column (X = 5)
   -11 BEGIN dup 10 < WHILE
-    dup 968 !
-    "cube" 5 968 @ 0 0 0 0 draw-mesh
+    dup temp_frame_loop !
+    "cube" 5 temp_frame_loop @ 0 0 0 0 draw-mesh
     1 +
   REPEAT
   pop
   
   // Bottom row (Y = -11)
   -6 BEGIN dup 6 < WHILE
-    dup 968 !
-    "cube" 968 @ -11 0 0 0 0 draw-mesh
+    dup temp_frame_loop !
+    "cube" temp_frame_loop @ -11 0 0 0 0 draw-mesh
     1 +
   REPEAT
   pop
@@ -604,18 +676,18 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // Float the next upcoming shape in 3D space on the right side of the screen
 : draw-next-piece-3d
   0 BEGIN dup 4 < WHILE
-    dup 956 !
+    dup temp_next_block !
     // Retrieve coordinates for next piece (rotation = 0)
-    38 @ 0 956 @ get-piece-coord // dx dy
+    next_piece_type @ 0 temp_next_block @ get-piece-coord // dx dy
     swap 11 + swap -6 + // dx+11 dy-6
     
     // Map colors to next piece mesh
-    38 @ 1 == IF "cube_yellow" ELSE
-    38 @ 2 == IF "cube_magenta" ELSE
-    38 @ 3 == IF "cube_orange" ELSE
-    38 @ 4 == IF "cube_blue" ELSE
-    38 @ 5 == IF "cube_green" ELSE
-    38 @ 6 == IF "cube_red" ELSE
+    next_piece_type @ 1 == IF "cube_yellow" ELSE
+    next_piece_type @ 2 == IF "cube_magenta" ELSE
+    next_piece_type @ 3 == IF "cube_orange" ELSE
+    next_piece_type @ 4 == IF "cube_blue" ELSE
+    next_piece_type @ 5 == IF "cube_green" ELSE
+    next_piece_type @ 6 == IF "cube_red" ELSE
     "cube_cyan"
     THEN THEN THEN THEN THEN THEN
     
@@ -636,21 +708,21 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   130 220 "title" "STACK 'EM (3D TETRIS)" ui-text
   130 260 "yellow" "Player: [PLAYERNAME]" ui-text
   130 300 "accent" "Score: " ui-text
-  220 300 "accent" 36 @ to-str ui-text
+  220 300 "accent" score @ to-str ui-text
   130 340 "green" "High Score: " ui-text
-  270 340 "green" 39 @ to-str ui-text
+  270 340 "green" highscore @ to-str ui-text
   
-  37 @ 1 == IF
+  game_over @ 1 == IF
     130 420 "red" "GAME OVER!" ui-text
     130 460 340 45 "RESTART GAME" ui-button IF
       init-grid
-      0 36 !
-      0 37 !
-      13 @ 7 mod 30 !
-      13 @ 3 + 7 mod 38 !
-      4 32 !
-      19 33 !
-      0 31 !
+      0 score !
+      0 game_over !
+      anim_cycle @ 7 mod active_piece_type !
+      anim_cycle @ 3 + 7 mod next_piece_type !
+      4 active_piece_x !
+      19 active_piece_y !
+      0 active_piece_rot !
     THEN
   ELSE
     130 420 "green" "STATUS: ACTIVE" ui-text
@@ -668,21 +740,21 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   
   // Panning buttons
   1130 300 160 35 "Rotate Left" ui-button IF
-    15 @ 5 - 360 mod 15 !
+    camera_angle @ 5 - 360 mod camera_angle !
   THEN
   1310 300 160 35 "Rotate Right" ui-button IF
-    15 @ 5 + 360 mod 15 !
+    camera_angle @ 5 + 360 mod camera_angle !
   THEN
   
   1130 350 340 35 "Reset Camera View" ui-button IF
-    15 15 !
+    15 camera_angle !
   THEN
   
   1130 400 340 35 "Toggle Auto-Rotation" ui-button IF
-    14 @ 1 == IF 0 14 ! ELSE 1 14 ! THEN
+    camera_auto_rotate @ 1 == IF 0 camera_auto_rotate ! ELSE 1 camera_auto_rotate ! THEN
   THEN
   
-  14 @ 1 == IF
+  camera_auto_rotate @ 1 == IF
     1130 450 "green" "Auto-Rotation: ACTIVE" ui-text
   ELSE
     1130 450 "red" "Auto-Rotation: INACTIVE" ui-text
@@ -704,16 +776,16 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   init-vars
   
   // Update cycle/animation counters
-  13 @ 1 + 13000 mod 13 !
+  anim_cycle @ 1 + 13000 mod anim_cycle !
   
   // Handle panning camera
-  14 @ 1 == IF
+  camera_auto_rotate @ 1 == IF
     // Slowly cycle camera angle between -15 and 15 degrees
-    13 @ 30 / 30 mod 15 - 15 !
+    anim_cycle @ 30 / 30 mod 15 - camera_angle !
   THEN
   
   // Run main gameplay logic if game is not over
-  37 @ 0 == IF
+  game_over @ 0 == IF
     handle-input
     update-fall
   THEN
@@ -721,7 +793,7 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   // Render everything
   setup-camera
   draw-grid-3d
-  37 @ 0 == IF
+  game_over @ 0 == IF
     draw-active-piece-3d
   THEN
   draw-frame-3d
