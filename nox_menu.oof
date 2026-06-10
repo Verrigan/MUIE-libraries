@@ -9,17 +9,22 @@
 : init_flag 10 ;
 : show_grid 11 ;
 : rotation_angle 13 ;
+: frame_count 20 ;
 
 : init-vars
   init_flag @ 0 == IF
     1 init_flag !
     1 show_grid !
     0 rotation_angle !
+    0 frame_count !
   THEN
 ;
 
 : update-animation
-  rotation_angle @ 2 + 360 mod rotation_angle !
+  frame_count @ 1 + 3 mod frame_count !
+  frame_count @ 0 == IF
+    rotation_angle @ 1 + 360 mod rotation_angle !
+  THEN
 ;
 
 : draw-gui
@@ -38,12 +43,17 @@
   THEN
   750 410 "yellow" "3D graphics showcase" ui-text
   
-  480 460 250 40 "Exit Game" ui-button IF
+  480 460 250 40 "2D Top Down Demo" ui-button IF
+    "/play mirage" send-line
+  THEN
+  750 470 "accent" "2D retro MMORPG style game" ui-text
+
+  480 520 250 40 "Exit Game" ui-button IF
     "/quit" send-line
   THEN
-  750 470 "red" "Disconnect from server" ui-text
+  750 530 "red" "Disconnect from server" ui-text
   
-  480 580 "accent" "Press ESC or click Exit to quit." ui-text
+  480 610 "accent" "Press Esc to Exit" ui-text
 ;
 
 : main

@@ -42,11 +42,11 @@ Designed for 150 columns by 40 rows resolution.
 // Dynamic light source radius check (None=0, Torch=1, Lantern=2, Phial=3)
 : get-light-radius
   me "/moria/light/type" getprop
-  dup "Torch" strcmp 0 == IF pop 1 ELSE
-  dup "Brass Lantern" strcmp 0 == IF pop 2 ELSE
-  dup "Phial" strcmp 0 == IF pop 3 ELSE
-  pop 0
-  THEN THEN THEN
+  dup "Torch" strcmp 0 == IF pop 1
+  dup "Brass Lantern" strcmp 0 == ELSEIF pop 2
+  dup "Phial" strcmp 0 == ELSEIF pop 3
+  ELSE pop 0
+  THEN
 ;
 
 : str-to-ascii // str -- ascii
@@ -141,31 +141,32 @@ Designed for 150 columns by 40 rows resolution.
 : get-town-tile // y x -- char
   set-tx-ty
   // Check entrances
-  ty 10 == tx 20 == * IF "1" ELSE
-  ty 10 == tx 50 == * IF "2" ELSE
-  ty 10 == tx 80 == * IF "3" ELSE
-  ty 18 == tx 20 == * IF "4" ELSE
-  ty 18 == tx 50 == * IF "5" ELSE
-  ty 18 == tx 80 == * IF "6" ELSE
+  ty 10 == tx 20 == * IF "1"
+  ty 10 == tx 50 == * ELSEIF "2"
+  ty 10 == tx 80 == * ELSEIF "3"
+  ty 18 == tx 20 == * ELSEIF "4"
+  ty 18 == tx 50 == * ELSEIF "5"
+  ty 18 == tx 80 == * ELSEIF "6"
   
   // Check stairs
-  ty 12 == tx 50 == * IF ">" ELSE
+  ty 12 == tx 50 == * ELSEIF ">"
   
   // Check building blocks
-  ty 6 10 in-range? tx 16 24 in-range? * IF "#" ELSE
-  ty 6 10 in-range? tx 46 54 in-range? * IF "#" ELSE
-  ty 6 10 in-range? tx 76 84 in-range? * IF "#" ELSE
-  ty 18 22 in-range? tx 16 24 in-range? * IF "#" ELSE
-  ty 18 22 in-range? tx 46 54 in-range? * IF "#" ELSE
-  ty 18 22 in-range? tx 76 84 in-range? * IF "#" ELSE
+  ty 6 10 in-range? tx 16 24 in-range? * ELSEIF "#"
+  ty 6 10 in-range? tx 46 54 in-range? * ELSEIF "#"
+  ty 6 10 in-range? tx 76 84 in-range? * ELSEIF "#"
+  ty 18 22 in-range? tx 16 24 in-range? * ELSEIF "#"
+  ty 18 22 in-range? tx 46 54 in-range? * ELSEIF "#"
+  ty 18 22 in-range? tx 76 84 in-range? * ELSEIF "#"
   
   // Check town boundaries
-  ty 1 == ty 23 == + tx 1 == tx 95 == + + IF "#" ELSE
-  ty 1 23 in-range? tx 1 95 in-range? * 0 == IF " " ELSE
+  ty 1 == ty 23 == + tx 1 == tx 95 == + + ELSEIF "#"
+  ty 1 23 in-range? tx 1 95 in-range? * 0 == ELSEIF " "
   
   // Open floor
-  "."
-  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  ELSE
+    "."
+  THEN
 ;
 
 // Get terminal width from player connection
@@ -442,54 +443,54 @@ Designed for 150 columns by 40 rows resolution.
 
 // Floor coordinate lookup
 : floor?
-  over over r1-floor? IF pop pop 1 ELSE
-  over over r2-floor? IF pop pop 1 ELSE
-  over over r3-floor? IF pop pop 1 ELSE
-  over over r4-floor? IF pop pop 1 ELSE
-  over over r5-floor? IF pop pop 1 ELSE
-  over over r6-floor? IF pop pop 1 ELSE
-  over over c1-floor? IF pop pop 1 ELSE
-  over over c2-floor? IF pop pop 1 ELSE
-  over over c3-floor? IF pop pop 1 ELSE
-  over over c4-floor? IF pop pop 1 ELSE
-  over over c5-floor? IF pop pop 1 ELSE
-  over over c6-floor? IF pop pop 1 ELSE
-  over over c7-floor? IF pop pop 1 ELSE
-  pop pop 0
-  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  over over r1-floor? IF pop pop 1
+  over over r2-floor? ELSEIF pop pop 1
+  over over r3-floor? ELSEIF pop pop 1
+  over over r4-floor? ELSEIF pop pop 1
+  over over r5-floor? ELSEIF pop pop 1
+  over over r6-floor? ELSEIF pop pop 1
+  over over c1-floor? ELSEIF pop pop 1
+  over over c2-floor? ELSEIF pop pop 1
+  over over c3-floor? ELSEIF pop pop 1
+  over over c4-floor? ELSEIF pop pop 1
+  over over c5-floor? ELSEIF pop pop 1
+  over over c6-floor? ELSEIF pop pop 1
+  over over c7-floor? ELSEIF pop pop 1
+  ELSE pop pop 0
+  THEN
 ;
 
 // Wall check
 : wall?
-  over over floor? IF pop pop 0 ELSE
-  over over r1-border? IF pop pop 1 ELSE
-  over over r2-border? IF pop pop 1 ELSE
-  over over r3-border? IF pop pop 1 ELSE
-  over over r4-border? IF pop pop 1 ELSE
-  over over r5-border? IF pop pop 1 ELSE
-  over over r6-border? IF pop pop 1 ELSE
-  pop pop 0
-  THEN THEN THEN THEN THEN THEN THEN
+  over over floor? IF pop pop 0
+  over over r1-border? ELSEIF pop pop 1
+  over over r2-border? ELSEIF pop pop 1
+  over over r3-border? ELSEIF pop pop 1
+  over over r4-border? ELSEIF pop pop 1
+  over over r5-border? ELSEIF pop pop 1
+  over over r6-border? ELSEIF pop pop 1
+  ELSE pop pop 0
+  THEN
 ;
 
 // Door check
 : door?
-  over 6 == over 26 == * IF pop pop 1 ELSE
-  over 6 == over 39 == * IF pop pop 1 ELSE
-  over 10 == over 15 == * IF pop pop 1 ELSE
-  over 17 == over 15 == * IF pop pop 1 ELSE
-  over 21 == over 26 == * IF pop pop 1 ELSE
-  over 21 == over 39 == * IF pop pop 1 ELSE
-  over 10 == over 50 == * IF pop pop 1 ELSE
-  over 17 == over 50 == * IF pop pop 1 ELSE
-  over 6 == over 61 == * IF pop pop 1 ELSE
-  over 6 == over 74 == * IF pop pop 1 ELSE
-  over 21 == over 61 == * IF pop pop 1 ELSE
-  over 21 == over 74 == * IF pop pop 1 ELSE
-  over 13 == over 88 == * IF pop pop 1 ELSE
-  over 17 == over 88 == * IF pop pop 1 ELSE
-  pop pop 0
-  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  over 6 == over 26 == * IF pop pop 1
+  over 6 == over 39 == * ELSEIF pop pop 1
+  over 10 == over 15 == * ELSEIF pop pop 1
+  over 17 == over 15 == * ELSEIF pop pop 1
+  over 21 == over 26 == * ELSEIF pop pop 1
+  over 21 == over 39 == * ELSEIF pop pop 1
+  over 10 == over 50 == * ELSEIF pop pop 1
+  over 17 == over 50 == * ELSEIF pop pop 1
+  over 6 == over 61 == * ELSEIF pop pop 1
+  over 6 == over 74 == * ELSEIF pop pop 1
+  over 21 == over 61 == * ELSEIF pop pop 1
+  over 21 == over 74 == * ELSEIF pop pop 1
+  over 13 == over 88 == * ELSEIF pop pop 1
+  over 17 == over 88 == * ELSEIF pop pop 1
+  ELSE pop pop 0
+  THEN
 ;
 
 // Default tile character computation
@@ -497,11 +498,11 @@ Designed for 150 columns by 40 rows resolution.
   me "/moria/depth" getprop to-int 0 == IF
     get-town-tile
   ELSE
-    over over door? IF pop pop "+" ELSE
-    over over floor? IF pop pop "." ELSE
-    over over wall? IF pop pop "#" ELSE
-    pop pop " "
-    THEN THEN THEN
+    over over door? IF pop pop "+"
+    over over floor? ELSEIF pop pop "."
+    over over wall? ELSEIF pop pop "#"
+    ELSE pop pop " "
+    THEN
   THEN
 ;
 
@@ -620,21 +621,21 @@ Designed for 150 columns by 40 rows resolution.
 
 // Check occupancy of a tile
 : occupied?
-  over over player-at? IF pop pop 1 ELSE
-  over over m1-at? IF pop pop 1 ELSE
-  over over m2-at? IF pop pop 1 ELSE
-  over over m3-at? IF pop pop 1 ELSE
-  pop pop 0
-  THEN THEN THEN THEN
+  over over player-at? IF pop pop 1
+  over over m1-at? ELSEIF pop pop 1
+  over over m2-at? ELSEIF pop pop 1
+  over over m3-at? ELSEIF pop pop 1
+  ELSE pop pop 0
+  THEN
 ;
 
 // Get monster ID (1, 2, or 3) at a coordinate, or 0 if none
 : get-monster-at
-  over over m1-at? IF pop pop 1 ELSE
-  over over m2-at? IF pop pop 2 ELSE
-  over over m3-at? IF pop pop 3 ELSE
-  pop pop 0
-  THEN THEN THEN
+  over over m1-at? IF pop pop 1
+  over over m2-at? ELSEIF pop pop 2
+  over over m3-at? ELSEIF pop pop 3
+  ELSE pop pop 0
+  THEN
 ;
 
 // Check if player's local lighting illuminates coordinate (radius <= 5 with line of sight)
@@ -679,13 +680,13 @@ Designed for 150 columns by 40 rows resolution.
     over over in-light?
   THEN
   IF
-    over over player-at? IF pop pop "@" ELSE
-    over over m1-at? IF pop pop 918 heap-@ ascii-to-str ELSE
-    over over m2-at? IF pop pop 922 heap-@ ascii-to-str ELSE
-    over over m3-at? IF pop pop 926 heap-@ ascii-to-str ELSE
-    over over 913 heap-@ 914 heap-@ check-pos? IF pop pop ">" ELSE
-    get-tile
-    THEN THEN THEN THEN THEN
+    over over player-at? IF pop pop "@"
+    over over m1-at? ELSEIF pop pop 918 heap-@ ascii-to-str
+    over over m2-at? ELSEIF pop pop 922 heap-@ ascii-to-str
+    over over m3-at? ELSEIF pop pop 926 heap-@ ascii-to-str
+    over over 913 heap-@ 914 heap-@ check-pos? ELSEIF pop pop ">"
+    ELSE get-tile
+    THEN
   ELSE
     get-tile
   THEN
@@ -698,32 +699,32 @@ Designed for 150 columns by 40 rows resolution.
 
 // Color escape helper mapping color codes to ANSI escape sequences
 : get-color-esc
-  dup 0 == IF pop "\e[0m" ELSE
-  dup 1 == IF pop "\e[1;31m" ELSE
-  dup 2 == IF pop "\e[1;32m" ELSE
-  dup 3 == IF pop "\e[1;33m" ELSE
-  dup 4 == IF pop "\e[1;34m" ELSE
-  dup 5 == IF pop "\e[1;35m" ELSE
-  dup 6 == IF pop "\e[1;36m" ELSE
-  dup 7 == IF pop "\e[1;37m" ELSE
-  dup 8 == IF pop "\e[1;30m" ELSE
-  dup 9 == IF pop "\e[0;33m" ELSE
-  pop "\e[1;37m"
-  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  dup 0 == IF pop "\e[0m"
+  dup 1 == ELSEIF pop "\e[1;31m"
+  dup 2 == ELSEIF pop "\e[1;32m"
+  dup 3 == ELSEIF pop "\e[1;33m"
+  dup 4 == ELSEIF pop "\e[1;34m"
+  dup 5 == ELSEIF pop "\e[1;35m"
+  dup 6 == ELSEIF pop "\e[1;36m"
+  dup 7 == ELSEIF pop "\e[1;37m"
+  dup 8 == ELSEIF pop "\e[1;30m"
+  dup 9 == ELSEIF pop "\e[0;33m"
+  ELSE pop "\e[1;37m"
+  THEN
 ;
 
 // Helper to determine the color code for a given character
 : get-char-color
-  dup "@" strcmp 0 == IF pop 7 ELSE
-  dup "D" strcmp 0 == IF pop 1 ELSE
-  dup "o" strcmp 0 == IF pop 2 ELSE
-  dup "$" strcmp 0 == IF pop 3 ELSE
-  dup ">" strcmp 0 == IF pop 2 ELSE
-  dup "+" strcmp 0 == IF pop 9 ELSE
-  dup "#" strcmp 0 == IF pop 4 ELSE
-  dup "1" strcmp 0 == over "2" strcmp 0 == + over "3" strcmp 0 == + over "4" strcmp 0 == + IF pop 6 ELSE
-  pop 0
-  THEN THEN THEN THEN THEN THEN THEN THEN
+  dup "@" strcmp 0 == IF pop 7
+  dup "D" strcmp 0 == ELSEIF pop 1
+  dup "o" strcmp 0 == ELSEIF pop 2
+  dup "$" strcmp 0 == ELSEIF pop 3
+  dup ">" strcmp 0 == ELSEIF pop 2
+  dup "+" strcmp 0 == ELSEIF pop 9
+  dup "#" strcmp 0 == ELSEIF pop 4
+  dup "1" strcmp 0 == over "2" strcmp 0 == + over "3" strcmp 0 == + over "4" strcmp 0 == + ELSEIF pop 6
+  ELSE pop 0
+  THEN
 ;
 
 // Helper to get or initialize the screen buffer structure
@@ -899,27 +900,27 @@ Designed for 150 columns by 40 rows resolution.
 // Check if monster and player share the same room
 : in-same-room?
   910 heap-@ 911 heap-@ r1-floor?
-  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r1-floor? * IF 1 ELSE
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r1-floor? * IF 1
   910 heap-@ 911 heap-@ r2-floor?
-  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r2-floor? * IF 1 ELSE
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r2-floor? * ELSEIF 1
   910 heap-@ 911 heap-@ r3-floor?
-  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r3-floor? * IF 1 ELSE
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r3-floor? * ELSEIF 1
   910 heap-@ 911 heap-@ r4-floor?
-  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r4-floor? * IF 1 ELSE
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r4-floor? * ELSEIF 1
   910 heap-@ 911 heap-@ r5-floor?
-  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r5-floor? * IF 1 ELSE
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r5-floor? * ELSEIF 1
   910 heap-@ 911 heap-@ r6-floor?
-  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r6-floor? * IF 1 ELSE
-  0
-  THEN THEN THEN THEN THEN THEN
+  me "/moria/temp/my" getprop to-int me "/moria/temp/mx" getprop to-int r6-floor? * ELSEIF 1
+  ELSE 0
+  THEN
 ;
 
 // Help coordinate increment towards player (simple tracking AI logic)
 : move-monster-coord
-  over over < IF pop 1 + ELSE
-  over over > IF pop 1 - ELSE
-  pop
-  THEN THEN
+  over over < IF pop 1 +
+  over over > ELSEIF pop 1 -
+  ELSE pop
+  THEN
 ;
 
 // Processes AI behavior step for a specific monster (attack player or track player coordinates)
@@ -927,14 +928,14 @@ Designed for 150 columns by 40 rows resolution.
   me "/moria/depth" getprop to-int 0 == IF
     pop
   ELSE
-    dup 1 == IF "/moria/m1/" ELSE
-    dup 2 == IF "/moria/m2/" ELSE
-    dup 3 == IF "/moria/m3/" ELSE
-    ""
-    THEN THEN THEN
+    dup 1 == IF "/moria/m1/"
+    dup 2 == ELSEIF "/moria/m2/"
+    dup 3 == ELSEIF "/moria/m3/"
+    ELSE ""
+    THEN
     
     dup "" strcmp 0 == 0 == IF
-      me "/moria/temp/prefix" rot setprop pop
+      me "/moria/temp/prefix" rot setprop pop pop
       me "/moria/temp/prefix" getprop "hp" + me swap getprop to-int 0 > IF
         me "/moria/temp/prefix" getprop "py" + me swap getprop me "/moria/temp/my" rot setprop pop
         me "/moria/temp/prefix" getprop "px" + me swap getprop me "/moria/temp/mx" rot setprop pop
@@ -999,8 +1000,7 @@ Designed for 150 columns by 40 rows resolution.
       to-str me "/moria/m1/hp" rot setprop pop
       me "/moria/msg" "You hit the Orc!" setprop pop
     THEN
-  ELSE
-  dup 2 == IF
+  dup 2 == ELSEIF
     me "/moria/m2/hp" getprop to-int roll-weapon-dmg -
     dup 0 <= IF
       pop me "/moria/m2/hp" "0" setprop pop
@@ -1010,8 +1010,7 @@ Designed for 150 columns by 40 rows resolution.
       to-str me "/moria/m2/hp" rot setprop pop
       me "/moria/msg" "You hit the Orc!" setprop pop
     THEN
-  ELSE
-  dup 3 == IF
+  dup 3 == ELSEIF
     me "/moria/m3/hp" getprop to-int roll-weapon-dmg 2 * -
     dup 0 <= IF
       pop me "/moria/m3/hp" "0" setprop pop
@@ -1021,7 +1020,7 @@ Designed for 150 columns by 40 rows resolution.
       to-str me "/moria/m3/hp" rot setprop pop
       me "/moria/msg" "You hit the Dragon!" setprop pop
     THEN
-  THEN THEN THEN
+  THEN
   pop
 ;
 
@@ -1094,12 +1093,12 @@ Designed for 150 columns by 40 rows resolution.
 
 // Race selection keypress handler
 : handle-race-key
-  dup "1" strcmp 0 == IF "Human" me "/moria/race" rot setprop pop 1 ELSE
-  dup "2" strcmp 0 == IF "Elf" me "/moria/race" rot setprop pop 1 ELSE
-  dup "3" strcmp 0 == IF "Dwarf" me "/moria/race" rot setprop pop 1 ELSE
-  dup "4" strcmp 0 == IF "Halfling" me "/moria/race" rot setprop pop 1 ELSE
-  0
-  THEN THEN THEN THEN
+  dup "1" strcmp 0 == IF "Human" me "/moria/race" rot setprop pop 1
+  dup "2" strcmp 0 == ELSEIF "Elf" me "/moria/race" rot setprop pop 1
+  dup "3" strcmp 0 == ELSEIF "Dwarf" me "/moria/race" rot setprop pop 1
+  dup "4" strcmp 0 == ELSEIF "Halfling" me "/moria/race" rot setprop pop 1
+  ELSE 0
+  THEN
   IF
     pop
     me "/moria/state" "2" setprop pop
@@ -1128,11 +1127,11 @@ Designed for 150 columns by 40 rows resolution.
 
 // Class selection keypress handler
 : handle-class-key
-  dup "1" strcmp 0 == IF "Warrior" me "/moria/class" rot setprop pop 1 ELSE
-  dup "2" strcmp 0 == IF "Mage" me "/moria/class" rot setprop pop 1 ELSE
-  dup "3" strcmp 0 == IF "Priest" me "/moria/class" rot setprop pop 1 ELSE
-  0
-  THEN THEN THEN
+  dup "1" strcmp 0 == IF "Warrior" me "/moria/class" rot setprop pop 1
+  dup "2" strcmp 0 == ELSEIF "Mage" me "/moria/class" rot setprop pop 1
+  dup "3" strcmp 0 == ELSEIF "Priest" me "/moria/class" rot setprop pop 1
+  ELSE 0
+  THEN
   IF
     pop
     me "/moria/state" "3" setprop pop
@@ -1229,10 +1228,10 @@ Designed for 150 columns by 40 rows resolution.
 
 // Keypress handler for rolling stats
 : handle-stat-key
-  dup " " strcmp 0 == IF pop roll-stats ELSE
-  dup "y" strcmp 0 == IF pop start-real-game ELSE
-  pop
-  THEN THEN
+  dup " " strcmp 0 == IF pop roll-stats
+  dup "y" strcmp 0 == ELSEIF pop start-real-game
+  ELSE pop
+  THEN
 ;
 
 // Initialize starting Moria game configuration states
@@ -1322,11 +1321,9 @@ Designed for 150 columns by 40 rows resolution.
     me "/moria/input_state" getprop "wield" strcmp 0 == IF
       dup "a" strcmp 0 == over "A" strcmp 0 == + IF
         me "/moria/msg" "You wield the Broadsword (1d8)." setprop pop
-      ELSE
-      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+      dup "b" strcmp 0 == over "B" strcmp 0 == + ELSEIF
         me "/moria/msg" "You wear the Round Shield." setprop pop
-      ELSE
-      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+      dup "c" strcmp 0 == over "C" strcmp 0 == + ELSEIF
         me "/moria/inv/torch" getprop to-int 0 > IF
           me "/moria/inv/torch" me "/moria/inv/torch" getprop to-int 1 - to-str setprop pop
           me "/moria/light/type" "Torch" setprop pop
@@ -1335,8 +1332,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have any Torches." setprop pop
         THEN
-      ELSE
-      dup "d" strcmp 0 == over "D" strcmp 0 == + IF
+      dup "d" strcmp 0 == over "D" strcmp 0 == + ELSEIF
         me "/moria/inv/lantern" getprop to-int 0 > IF
           me "/moria/inv/lantern" me "/moria/inv/lantern" getprop to-int 1 - to-str setprop pop
           me "/moria/light/type" "Brass Lantern" setprop pop
@@ -1345,8 +1341,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have any Brass Lanterns." setprop pop
         THEN
-      ELSE
-      dup "i" strcmp 0 == over "I" strcmp 0 == + IF
+      dup "i" strcmp 0 == over "I" strcmp 0 == + ELSEIF
         me "/moria/inv/phial" getprop to-int 0 > IF
           me "/moria/inv/phial" me "/moria/inv/phial" getprop to-int 1 - to-str setprop pop
           me "/moria/light/type" "Phial" setprop pop
@@ -1357,7 +1352,7 @@ Designed for 150 columns by 40 rows resolution.
         THEN
       ELSE
         me "/moria/msg" "Cancelled." setprop pop
-      THEN THEN THEN THEN THEN
+      THEN
       me "/moria/input_state" "" setprop pop
       draw-status
       pop
@@ -1371,8 +1366,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+      dup "b" strcmp 0 == over "B" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 15 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 15 - to-str setprop pop
           me "/moria/inv/scroll_phase" me "/moria/inv/scroll_phase" getprop to-int 1 + to-str setprop pop
@@ -1380,8 +1374,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+      dup "c" strcmp 0 == over "C" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 50 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 50 - to-str setprop pop
           me "/moria/inv/scroll_recall" me "/moria/inv/scroll_recall" getprop to-int 1 + to-str setprop pop
@@ -1389,8 +1382,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "d" strcmp 0 == over "D" strcmp 0 == + IF
+      dup "d" strcmp 0 == over "D" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 10 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 10 - to-str setprop pop
           me "/moria/inv/torch" me "/moria/inv/torch" getprop to-int 1 + to-str setprop pop
@@ -1398,8 +1390,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "e" strcmp 0 == over "E" strcmp 0 == + IF
+      dup "e" strcmp 0 == over "E" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 25 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 25 - to-str setprop pop
           me "/moria/inv/lantern" me "/moria/inv/lantern" getprop to-int 1 + to-str setprop pop
@@ -1407,8 +1398,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "f" strcmp 0 == over "F" strcmp 0 == + IF
+      dup "f" strcmp 0 == over "F" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 15 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 15 - to-str setprop pop
           me "/moria/inv/oil" me "/moria/inv/oil" getprop to-int 1 + to-str setprop pop
@@ -1418,7 +1408,7 @@ Designed for 150 columns by 40 rows resolution.
         THEN
       ELSE
         me "/moria/msg" "Welcome to General Store!" setprop pop
-      THEN THEN THEN THEN THEN THEN
+      THEN
       me "/moria/input_state" "" setprop pop
       draw-status
       pop
@@ -1433,8 +1423,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+      dup "b" strcmp 0 == over "B" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 75 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 75 - to-str setprop pop
           me "/moria/weapon" "Longsword (1d10)" setprop pop
@@ -1443,8 +1432,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+      dup "c" strcmp 0 == over "C" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 100 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 100 - to-str setprop pop
           me "/moria/maxhp" me "/moria/maxhp" getprop to-int 20 + to-str setprop pop
@@ -1455,7 +1443,7 @@ Designed for 150 columns by 40 rows resolution.
         THEN
       ELSE
         me "/moria/msg" "Welcome to Armory!" setprop pop
-      THEN THEN THEN
+      THEN
       me "/moria/input_state" "" setprop pop
       draw-status
       pop
@@ -1469,8 +1457,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+      dup "b" strcmp 0 == over "B" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 50 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 50 - to-str setprop pop
           me "/moria/int" me "/moria/int" getprop to-int 1 + to-str setprop pop
@@ -1478,8 +1465,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+      dup "c" strcmp 0 == over "C" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 30 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 30 - to-str setprop pop
           me "/moria/maxhp" getprop me "/moria/hp" rot setprop pop
@@ -1489,7 +1475,7 @@ Designed for 150 columns by 40 rows resolution.
         THEN
       ELSE
         me "/moria/msg" "Welcome to Alchemist!" setprop pop
-      THEN THEN THEN
+      THEN
       me "/moria/input_state" "" setprop pop
       draw-status
       pop
@@ -1503,24 +1489,21 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "b" strcmp 0 == over "B" strcmp 0 == + IF
+      dup "b" strcmp 0 == over "B" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 30 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 30 - to-str setprop pop
           me "/moria/msg" "You identify your equipment." setprop pop
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "c" strcmp 0 == over "C" strcmp 0 == + IF
+      dup "c" strcmp 0 == over "C" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 40 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 40 - to-str setprop pop
           me "/moria/msg" "Any curses have been removed." setprop pop
         ELSE
           me "/moria/msg" "You do not have enough gold!" setprop pop
         THEN
-      ELSE
-      dup "d" strcmp 0 == over "D" strcmp 0 == + IF
+      dup "d" strcmp 0 == over "D" strcmp 0 == + ELSEIF
         me "/moria/gold" getprop to-int 150 >= IF
           me "/moria/gold" me "/moria/gold" getprop to-int 150 - to-str setprop pop
           me "/moria/inv/phial" me "/moria/inv/phial" getprop to-int 1 + to-str setprop pop
@@ -1530,7 +1513,7 @@ Designed for 150 columns by 40 rows resolution.
         THEN
       ELSE
         me "/moria/msg" "Welcome to Temple!" setprop pop
-      THEN THEN THEN THEN
+      THEN
       me "/moria/input_state" "" setprop pop
       draw-status
       pop
@@ -1550,8 +1533,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have any Flasks of Oil." setprop pop
         THEN
-      ELSE
-      dup "f" strcmp 0 == over "F" strcmp 0 == + IF
+      dup "f" strcmp 0 == over "F" strcmp 0 == + ELSEIF
         me "/moria/inv/potion_healing" getprop to-int 0 > IF
           me "/moria/inv/potion_healing" me "/moria/inv/potion_healing" getprop to-int 1 - to-str setprop pop
           me "/moria/hp" getprop to-int 15 + me "/moria/maxhp" getprop to-int min to-str me "/moria/hp" rot setprop pop
@@ -1559,8 +1541,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have any Potions of Healing." setprop pop
         THEN
-      ELSE
-      dup "g" strcmp 0 == over "G" strcmp 0 == + IF
+      dup "g" strcmp 0 == over "G" strcmp 0 == + ELSEIF
         me "/moria/inv/scroll_phase" getprop to-int 0 > IF
           me "/moria/inv/scroll_phase" me "/moria/inv/scroll_phase" getprop to-int 1 - to-str setprop pop
           rand 95 mod 5 + to-str me "/moria/px" rot setprop pop
@@ -1572,8 +1553,7 @@ Designed for 150 columns by 40 rows resolution.
         ELSE
           me "/moria/msg" "You do not have any Scrolls of Phase Door." setprop pop
         THEN
-      ELSE
-      dup "h" strcmp 0 == over "H" strcmp 0 == + IF
+      dup "h" strcmp 0 == over "H" strcmp 0 == + ELSEIF
         me "/moria/inv/scroll_recall" getprop to-int 0 > IF
           me "/moria/inv/scroll_recall" me "/moria/inv/scroll_recall" getprop to-int 1 - to-str setprop pop
           me "/moria/depth" getprop to-int 0 > IF
@@ -1598,7 +1578,7 @@ Designed for 150 columns by 40 rows resolution.
         THEN
       ELSE
         me "/moria/msg" "Cancelled." setprop pop
-      THEN THEN THEN THEN
+      THEN
       me "/moria/input_state" "" setprop pop
       draw-status
       pop
@@ -1771,16 +1751,13 @@ Designed for 150 columns by 40 rows resolution.
                 dup "1" strcmp 0 == over "6" strcmp 0 == + IF
                   pop me "/moria/input_state" "shop_general" setprop pop
                   me "/moria/msg" "General Store: [a] Potion (20g) [b] Phase (15g) [c] Recall (50g) [d] Torch (10g) [e] Lantern (25g) [f] Oil (15g)" setprop pop save-game
-                ELSE
-                dup "2" strcmp 0 == over "3" strcmp 0 == + IF
+                dup "2" strcmp 0 == over "3" strcmp 0 == + ELSEIF
                   pop me "/moria/input_state" "shop_armory" setprop pop
                   me "/moria/msg" "Armory: [a] Dagger (1d4) (15g)  [b] Longsword (1d10) (75g)  [c] Plate Mail (100g)" setprop pop save-game
-                ELSE
-                dup "4" strcmp 0 == IF
+                dup "4" strcmp 0 == ELSEIF
                   pop me "/moria/input_state" "shop_temple" setprop pop
                   me "/moria/msg" "Temple: [a] Bless (20g) [b] Identify (30g) [c] Uncurse (40g) [d] Phial of Galadriel (150g)" setprop pop save-game
-                ELSE
-                dup "5" strcmp 0 == IF
+                dup "5" strcmp 0 == ELSEIF
                   pop me "/moria/input_state" "shop_alchemist" setprop pop
                   me "/moria/msg" "Alchemist: [a] Potion of Strength (50g)  [b] Potion of Intelligence (50g)  [c] Potion of Restore Life (30g)" setprop pop save-game
                 ELSE
@@ -1792,7 +1769,7 @@ Designed for 150 columns by 40 rows resolution.
                   ELSE
                     me "/moria/msg" " " setprop pop
                   THEN
-                THEN THEN THEN THEN
+                THEN
                 
                 // Apply movement coordinates
                 me "/moria/px" me "/moria/temp/new_px" getprop setprop pop
@@ -1814,7 +1791,6 @@ Designed for 150 columns by 40 rows resolution.
               THEN
               
               THEN THEN
-              pop
             THEN
           THEN
         THEN
@@ -1827,13 +1803,13 @@ Designed for 150 columns by 40 rows resolution.
 // Redraws the screen based on the current game state
 : redraw-screen
   me "/moria/state" getprop to-int
-  dup 0 == IF pop show-splash ELSE
-  dup 1 == IF pop show-race-menu ELSE
-  dup 2 == IF pop show-class-menu ELSE
-  dup 3 == IF pop draw-stats-screen ELSE
-  dup 4 == IF pop clear-screen draw-map draw-status ELSE
-  pop
-  THEN THEN THEN THEN THEN
+  dup 0 == IF pop show-splash
+  dup 1 == ELSEIF pop show-race-menu
+  dup 2 == ELSEIF pop show-class-menu
+  dup 3 == ELSEIF pop draw-stats-screen
+  dup 4 == ELSEIF pop clear-screen draw-map draw-status
+  ELSE pop
+  THEN
 ;
 
 // Main entry point execution router
@@ -1883,13 +1859,13 @@ Designed for 150 columns by 40 rows resolution.
       pop
     ELSE
       me "/moria/state" getprop to-int
-      dup 0 == IF pop handle-splash-key ELSE
-      dup 1 == IF pop handle-race-key ELSE
-      dup 2 == IF pop handle-class-key ELSE
-      dup 3 == IF pop handle-stat-key ELSE
-      dup 4 == IF pop handle-game-key ELSE
-      pop pop
-      THEN THEN THEN THEN THEN
+      dup 0 == IF pop handle-splash-key
+      dup 1 == ELSEIF pop handle-race-key
+      dup 2 == ELSEIF pop handle-class-key
+      dup 3 == ELSEIF pop handle-stat-key
+      dup 4 == ELSEIF pop handle-game-key
+      ELSE pop pop
+      THEN
     THEN
 
     me "/moria/exited" getprop "1" strcmp 0 == 0 == IF

@@ -13,6 +13,20 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   over over / * -
 ;
 
+: min
+  over over < IF pop ELSE swap pop THEN
+;
+
+: max
+  over over > IF pop ELSE swap pop THEN
+;
+
+// Absolute value helper ( |n| )
+: abs
+  dup 0 < IF 0 swap - THEN
+;
+
+
 // --- Variable slot definitions ---
 // NOTE: Memory slots 10-15 (and other specific slots) are reserved/shared with the client/server system
 // for system-level graphics, configuration, and state maintenance (e.g., slot 11 is read by NoxClient for grid state).
@@ -21,6 +35,224 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 : anim_cycle 13 ;
 : camera_auto_rotate 14 ;
 : camera_angle 15 ;
+: camera_focus_y 16 ;
+: auto_rot_speed 17 ;
+: game_started 18 ;
+: game_level 56 ;
+: cleared_rows_at_level 57 ;
+
+// --- AI Mode variables ---
+: ai_mode 19 ;
+: ai_best_x 60 ;
+: ai_best_y 61 ;
+: ai_best_rot 62 ;
+: ai_best_score 63 ;
+
+: search_min_x 1000 ;
+: search_max_x 1001 ;
+: search_min_y 1002 ;
+: search_max_y 1003 ;
+: max_possible_clears 1004 ;
+: temp_type 1005 ;
+: ai_search_state 1006 ;
+: ai_search_rot 1007 ;
+: temp_step_idx 1008 ;
+: search_in_progress 1009 ;
+: search_col_count 1010 ;
+: ai_played 1011 ;
+: ai_search_cycle 1012 ;
+: sim_cand1_active 1013 ;
+: sim_cand2_active 1014 ;
+
+: temp_backup_x 208 ;
+: temp_backup_y 209 ;
+: temp_backup_z 210 ;
+: temp_backup_dx0 211 ;
+: temp_backup_dy0 212 ;
+: temp_backup_dz0 213 ;
+: temp_backup_dx1 214 ;
+: temp_backup_dy1 215 ;
+: temp_backup_dz1 216 ;
+: temp_backup_dx2 217 ;
+: temp_backup_dy2 218 ;
+: temp_backup_dz2 219 ;
+: temp_backup_dx3 220 ;
+: temp_backup_dy3 221 ;
+: temp_backup_dz3 222 ;
+: temp_max_rot 223 ;
+: temp_search_rot 224 ;
+: temp_search_x 225 ;
+: temp_search_y 226 ;
+: temp_landing_z 227 ;
+: temp_holes 228 ;
+: temp_lines 229 ;
+: temp_score 230 ;
+: temp_rot_idx 231 ;
+: temp_z_rot 232 ;
+: temp_scratch_h0 204 ;
+: temp_scratch_h1 233 ;
+: temp_ai_val 234 ;
+: temp_pz 235 ;
+: temp_px 236 ;
+: temp_py 237 ;
+: temp_ai_bx 238 ;
+: temp_ai_by 239 ;
+: temp_ai_bz 240 ;
+: temp_z 241 ;
+: temp_x 242 ;
+: temp_y 243 ;
+: temp_found_filled 244 ;
+: temp_completed 245 ;
+: temp_full 246 ;
+: ai_target_axis 247 ;
+: ai_target_z_rot 248 ;
+: ai_current_axis_done 249 ;
+: ai_current_z_rot_done 250 ;
+: cooldown_f3 64 ;
+: temp_height_sum 251 ;
+: temp_col_h 252 ;
+: temp_found 253 ;
+: temp_lz_found 283 ;
+: temp_prop_found 284 ;
+: temp_lz_l 285 ;
+: temp_lz_r 286 ;
+: temp_lz_f 287 ;
+: temp_lz_b 288 ;
+: temp_wd 289 ;
+: temp_addr 293 ;
+: ai_move_cooldown 254 ;
+: temp_bumpiness 255 ;
+: temp_is_flat 256 ;
+: temp_is_flat_spot 257 ;
+: temp_h0 258 ;
+: temp_prio 259 ;
+: temp_tick_cols 263 ;
+: temp_cycle_cols 264 ;
+: temp_cycle_limit 265 ;
+: temp_tick_limit 266 ;
+: temp_tick_done 267 ;
+: temp_cycle_finished 268 ;
+: temp_line_clear_bonus 269 ;
+
+: temp_old_h 700 ;
+: temp_old_bump 701 ;
+: temp_new_bump 702 ;
+: temp_cx 703 ;
+: temp_cy 704 ;
+: temp_cz 705 ;
+: temp_new_h 706 ;
+: temp_old_h2 707 ;
+: temp_old_holes 708 ;
+: temp_new_holes 709 ;
+: temp_val 710 ;
+: temp_h_found 711 ;
+: temp_h_holes 712 ;
+
+: temp_backup_type 610 ;
+: grid_max_h 509 ;
+: search_best_x 510 ;
+: search_best_y 511 ;
+: search_best_z 512 ;
+: search_best_rot 513 ;
+: search_best_score 514 ;
+: temp_scan_h 515 ;
+: force_full_scan 516 ;
+: precompute_state 517 ;
+: precompute_idx 518 ;
+: precompute_min_x 520 ;
+: precompute_max_x 521 ;
+: precompute_min_y 522 ;
+: precompute_max_y 523 ;
+: new_min_x 524 ;
+: new_max_x 525 ;
+: new_min_y 526 ;
+: new_max_y 527 ;
+: precompute_span_x 528 ;
+: precompute_total_cols 529 ;
+: bump_min_x 530 ;
+: bump_max_x 531 ;
+: bump_min_y 532 ;
+: bump_max_y 533 ;
+: bump_span_x 534 ;
+: bump_total_cols 535 ;
+: cand1_h0 536 ;
+: cand1_h1 537 ;
+: cand1_h2 538 ;
+: cand1_h3 539 ;
+: cand2_h0 540 ;
+: cand2_h1 541 ;
+: cand2_h2 542 ;
+: cand2_h3 543 ;
+
+: cand1_x 600 ;
+: cand1_y 601 ;
+: cand1_rot 602 ;
+: cand1_score 603 ;
+: cand1_next_score 604 ;
+
+: cand2_x 605 ;
+: cand2_y 606 ;
+: cand2_rot 607 ;
+: cand2_score 608 ;
+: cand2_next_score 609 ;
+
+: cand1_z 611 ;
+: cand2_z 612 ;
+: ai_best_z 65 ;
+
+: temp_tx 270 ;
+: temp_ty 271 ;
+: temp_target_x 272 ;
+: temp_target_y 273 ;
+: temp_lz 274 ;
+: temp_search_z 275 ;
+: temp_rot_success 276 ;
+: temp_min_h 277 ;
+: temp_void_bonus 278 ;
+: temp_void_cells 279 ;
+: replay_paused 280 ;
+: replay_frame_index 281 ;
+: replay_step_request 282 ;
+: replay_total_frames 283 ;
+
+: clearing_plane_z 290 ;
+: clearing_timer 291 ;
+: last_seen_replay_frame 292 ;
+: current_wave_lines 294 ;
+
+
+: base_height_sum 300 ;
+: base_holes 301 ;
+: base_bumpiness 302 ;
+: grid_end_addr 303 ;
+
+: b0_x 310 ; : b0_y 311 ; : b0_z 312 ;
+: b1_x 313 ; : b1_y 314 ; : b1_z 315 ;
+: b2_x 316 ; : b2_y 317 ; : b2_z 318 ;
+: b3_x 319 ; : b3_y 320 ; : b3_z 321 ;
+
+: uc0_x 322 ; : uc0_y 323 ; : uc0_count 324 ; : uc0_max_z 325 ;
+: uc1_x 326 ; : uc1_y 327 ; : uc1_count 328 ; : uc1_max_z 329 ;
+: uc2_x 330 ; : uc2_y 331 ; : uc2_count 332 ; : uc2_max_z 333 ;
+: uc3_x 334 ; : uc3_y 335 ; : uc3_count 336 ; : uc3_max_z 337 ;
+: num_uc 338 ;
+
+: uz0 340 ; : uz0_count 341 ;
+: uz1 342 ; : uz1_count 343 ;
+: uz2 344 ; : uz2_count 345 ;
+: uz3 346 ; : uz3_count 347 ;
+: num_uz 348 ;
+
+: ch_x 350 ;
+: ch_y 351 ;
+: ch_val 352 ;
+: uc_loop_idx 353 ;
+: uc_neigh_idx 354 ;
+: temp_req 945 ;
+: temp_speed 946 ;
+: sim_cell_x 260 ;
+: sim_cell_y 261 ;
+: sim_cell_z 262 ;
 
 // Gameplay variables
 : active_piece_type 30 ;
@@ -33,12 +265,134 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 : game_over 37 ;
 : next_piece_type 38 ;
 : highscore 39 ;
+: global_seed 40 ;
+: cooldown_f2 41 ;
+: active_grid_id 269 ;
+
+
+// Leaderboard variables
+: temp_cos 938 ;
+: temp_sin 939 ;
+: temp_rank 940 ;
+: temp_idx 941 ;
+: temp_inserted 942 ;
+: temp_grid_y 936 ;
+: temp_grid_x 935 ;
+: temp_ghost_z 937 ;
+: leaderboard_popup_open 200 ;
+: dropdown_selected_idx 201 ;
+: dropdown_open_state 202 ;
+: cooldown_menu_keys 203 ;
+: is_replaying 205 ;
+: replay_speed_pct 206 ;
+: lock_occurred 207 ;
+: lock_piece_x 900 ;
+: lock_piece_y 901 ;
+: lock_piece_z 902 ;
+: lock_piece_rot 903 ;
+: lock_piece_type 904 ;
+: temp_draw_has_rec 500 ;
+
 
 // Cooldown variables
+: cooldown_z 42 ;
 : cooldown_left 43 ;
 : cooldown_right 44 ;
 : cooldown_rotate 45 ;
 : cooldown_soft_drop 46 ;
+: cooldown_hard_drop 47 ;
+: auto_drop_active 48 ;
+: lock_delay_timer 49 ;
+: active_piece_z 50 ;
+: enable_tetracubes 58 ;
+: grid_w 51 ;
+: grid_h 52 ;
+: grid_d 53 ;
+: grid_base 2000 ;
+: camera_pitch 54 ;
+: camera_dist 55 ;
+: camera_mode 12 ;
+
+// Custom Key Mapping variables
+: bind_forward 70 ;
+: bind_left 71 ;
+: bind_right 72 ;
+: bind_backward 73 ;
+: bind_rot_z_l 74 ;
+: bind_rot_z_r 75 ;
+: bind_rot_x_f 76 ;
+: bind_rot_x_b 77 ;
+: bind_rot_y_l 78 ;
+: bind_rot_y_r 79 ;
+: bind_down 80 ;
+: bind_drop 81 ;
+: bind_waiting 82 ;
+: customizing_keys 83 ;
+: last_mouse_x 84 ;
+: last_mouse_y 85 ;
+: mouse_dragging 86 ;
+: last_cam_grid_w 87 ;
+: last_cam_grid_h 88 ;
+: last_cam_grid_d 89 ;
+: temp_mx 928 ;
+: temp_my 929 ;
+: temp_mb 930 ;
+
+: active_dx0 1200 ;
+: active_dy0 1201 ;
+: active_dz0 1202 ;
+: active_dx1 1203 ;
+: active_dy1 1204 ;
+: active_dz1 1205 ;
+: active_dx2 1206 ;
+: active_dy2 1207 ;
+: active_dz2 1208 ;
+: active_dx3 1209 ;
+: active_dy3 1210 ;
+: active_dz3 1211 ;
+: candidate_dx0 1212 ;
+: candidate_dy0 1213 ;
+: candidate_dz0 1214 ;
+: candidate_dx1 1215 ;
+: candidate_dy1 1216 ;
+: candidate_dz1 1217 ;
+: candidate_dx2 1218 ;
+: candidate_dy2 1219 ;
+: candidate_dz2 1220 ;
+: candidate_dx3 1221 ;
+: candidate_dy3 1222 ;
+: candidate_dz3 1223 ;
+: temp_dx0 1224 ;
+: temp_dy0 1225 ;
+: temp_dz0 1226 ;
+: temp_dx1 1227 ;
+: temp_dy1 1228 ;
+: temp_dz1 1229 ;
+: temp_dx2 1230 ;
+: temp_dy2 1231 ;
+: temp_dz2 1232 ;
+: temp_dx3 1233 ;
+: temp_dy3 1234 ;
+: temp_dz3 1235 ;
+: backup_dx0 1236 ;
+: backup_dy0 1237 ;
+: backup_dz0 1238 ;
+: backup_dx1 1239 ;
+: backup_dy1 1240 ;
+: backup_dz1 1241 ;
+: backup_dx2 1242 ;
+: backup_dy2 1243 ;
+: backup_dz2 1244 ;
+: backup_dx3 1245 ;
+: backup_dy3 1246 ;
+: backup_dz3 1247 ;
+: temp_coll_res 295 ;
+: temp_ang 972 ;
+
+: ai_backup_dx0 800 ; : ai_backup_dy0 801 ; : ai_backup_dz0 802 ;
+: ai_backup_dx1 803 ; : ai_backup_dy1 804 ; : ai_backup_dz1 805 ;
+: ai_backup_dx2 806 ; : ai_backup_dy2 807 ; : ai_backup_dz2 808 ;
+: ai_backup_dx3 809 ; : ai_backup_dy3 810 ; : ai_backup_dz3 811 ;
 
 // Temp variables
 : temp_dy 995 ;
@@ -46,9 +400,27 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 : temp_block 997 ;
 : temp_rotation 998 ;
 : temp_piece 999 ;
-: temp_base_addr 9000 ;
+: temp_grid_z 987 ;
+: temp_init_z 958 ;
+: temp_active_z 955 ;
+: temp_draw_z 953 ;
+: temp_draw_z3d 954 ;
+: temp_shift_y 956 ;
+: temp_lines_z 957 ;
+: temp_coll_z 944 ;
+: temp_coll_target_z 986 ;
+: temp_w 951 ;
+: temp_h 952 ;
+: temp_d 943 ;
+: temp_bx 501 ;
+: temp_bz 502 ;
+: temp_by 947 ;
+: temp_frame_y 948 ;
+: temp_frame_x 949 ;
+: temp_frame_z 950 ;
+: temp_base_addr 20000 ;
 : temp_dest_rot 991 ;
-: temp_src_rot 992 ;
+: temp_src_rot 508 ;
 : temp_piece_clone 993 ;
 : temp_block_clone 994 ;
 : temp_grid_val 990 ;
@@ -61,17 +433,29 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 : temp_coll_block 981 ;
 : temp_coll_target_y 980 ;
 : temp_coll_target_x 979 ;
-: temp_shift_target_y 971 ;
-: temp_shift_current_y 970 ;
+: temp_shift_target_z 971 ;
+: temp_shift_current_z 970 ;
 : temp_shift_x 969 ;
 : temp_lines_cleared 974 ;
 : temp_lines_y 973 ;
-: temp_lines_is_full 971 ;
-: temp_lines_x 972 ;
+: temp_lines_is_full 968 ;
+: temp_lines_x 507 ;
 : temp_rotate_target 978 ;
 : temp_lock_block 977 ;
 : temp_lock_y 976 ;
 : temp_lock_x 975 ;
+: temp_lock_z 934 ;
+: temp_rot_count 917 ;
+: temp_axis 918 ;
+: temp_is_dragging 916 ;
+: temp_zup_rz 920 ;
+: temp_zup_ry 921 ;
+: temp_zup_rx 922 ;
+: temp_zup_z3d 923 ;
+: temp_zup_y3d 924 ;
+: temp_zup_x3d 925 ;
+: temp_zup_mesh 926 ;
+: temp_zup_frame 927 ;
 : temp_draw_color 967 ;
 : temp_draw_y 966 ;
 : temp_draw_x 965 ;
@@ -80,11 +464,12 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 : temp_active_block 962 ;
 : temp_active_y 961 ;
 : temp_active_x 960 ;
-: temp_frame_loop 968 ;
-: temp_next_block 956 ;
+: temp_frame_loop 506 ;
+: temp_next_block 503 ;
 : temp_grid3d_y 959 ;
-: temp_grid3d_x 958 ;
-: temp_grid3d_val 957 ;
+: temp_grid3d_x 505 ;
+: temp_grid3d_val 504 ;
+: temp_seed 992 ;
 
 // Write coordinates to the tetromino shape table in the heap
 // ( piece rotation block dx dy -- )
@@ -143,8 +528,6 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 // --- Tetromino Shape Table Initialization ---
 
 : init-tetromino-table
-  // Allocate heap memory for our coordinates (224 bytes needed)
-  256 heap-alloc
   
   // Piece 0: I-piece (cyan)
   0 0 0 -1 0 set-piece-coord
@@ -264,118 +647,277 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
 
 // --- Grid Storage & Helpers ---
 
-// Get cell value at (x, y)
-// ( x y -- val )
+// Get cell value at (x, y, z)
+// ( x y z -- val )
 : grid-get
-  10 * + 100 + @
+  temp_grid_z !
+  temp_grid_y !
+  temp_grid_x !
+  
+  temp_grid_x @ 0 <
+  temp_grid_x @ grid_w @ >= +
+  temp_grid_y @ 0 < +
+  temp_grid_y @ grid_d @ >= +
+  temp_grid_z @ 0 < +
+  temp_grid_z @ grid_h @ >= + IF
+    0
+  ELSE
+    active_grid_id @ temp_grid_x @ temp_grid_y @ temp_grid_z @ gl-grid-get
+  THEN
 ;
 
-// Set cell value at (x, y)
-// ( x y val -- )
+// Set cell value at (x, y, z)
+// ( x y z val -- )
 : grid-set
-  temp_grid_val ! // val
-  10 * + 100 + // address
-  temp_grid_val @ swap !
+  temp_grid_val !
+  temp_grid_z !
+  temp_grid_y !
+  temp_grid_x !
+  
+  temp_grid_x @ 0 <
+  temp_grid_x @ grid_w @ >= +
+  temp_grid_y @ 0 < +
+  temp_grid_y @ grid_d @ >= +
+  temp_grid_z @ 0 < +
+  temp_grid_z @ grid_h @ >= + IF
+    // Out of bounds, ignore
+  ELSE
+    active_grid_id @ temp_grid_x @ temp_grid_y @ temp_grid_z @ temp_grid_val @ gl-grid-set
+  THEN
 ;
 
-// Clear the grid to empty
+// Clear the grid to empty and allocate/initialize the heap
 : init-grid
-  0 BEGIN dup 20 < WHILE
-    dup temp_init_y ! // y
-    0 BEGIN dup 10 < WHILE
-      dup temp_init_x ! // x
-      temp_init_x @ temp_init_y @ 0 grid-set
-      1 +
-    REPEAT
-    pop
-    1 +
-  REPEAT
-  pop
+  20000
+  grid_w @ grid_h @ * grid_d @ * +
+  dup grid_end_addr !
+  grid_w @ 2 + grid_d @ 2 + * +
+  heap-alloc
+  init-tetromino-table
+  
+  grid_w @ grid_h @ grid_d @ gl-grid-create active_grid_id !
 ;
 
 // --- Collision Checking ---
 
-// Check if a piece collides at a hypothetical position/rotation
-// ( x y rotation -- bool )
-: check-collision-at
-  temp_coll_rotation ! // rotation
-  temp_coll_y ! // y
-  temp_coll_x ! // x
-  
-  0 temp_coll_flag ! // collision flag = 0
-  
-  0 BEGIN dup 4 < WHILE
-    dup temp_coll_block ! // block index
-    
-    active_piece_type @ temp_coll_rotation @ temp_coll_block @ get-piece-coord // dx dy
-    temp_coll_y @ + temp_coll_target_y ! // target y
-    temp_coll_x @ + temp_coll_target_x ! // target x
-    
-    // Check boundaries
-    temp_coll_target_x @ 0 <
-    temp_coll_target_x @ 9 > +
-    temp_coll_target_y @ 0 < + IF
-      1 temp_coll_flag ! // Collision!
+: init-active-piece-offsets
+  active_piece_type @ 7 >= IF
+    active_piece_type @ 7 == IF
+      0 active_dx0 ! 0 active_dy0 ! 0 active_dz0 !
+      1 active_dx1 ! 0 active_dy1 ! 0 active_dz1 !
+      0 active_dx2 ! 1 active_dy2 ! 0 active_dz2 !
+      0 active_dx3 ! 0 active_dy3 ! 1 active_dz3 !
     ELSE
-      temp_coll_target_y @ 20 < IF
-        temp_coll_target_x @ temp_coll_target_y @ grid-get 0 > IF
-          1 temp_coll_flag ! // Collision!
-        THEN
-      THEN
-    THEN
-    
-    1 +
-  REPEAT
-  pop // pop loop counter
-  temp_coll_flag @ // push collision flag
+    active_piece_type @ 8 == IF
+      0 active_dx0 ! 0 active_dy0 ! 0 active_dz0 !
+      1 active_dx1 ! 0 active_dy1 ! 0 active_dz1 !
+      0 active_dx2 ! 1 active_dy2 ! 0 active_dz2 !
+      0 active_dx3 ! 1 active_dy3 ! 1 active_dz3 !
+    ELSE
+      0 active_dx0 ! 0 active_dy0 ! 0 active_dz0 !
+      1 active_dx1 ! 0 active_dy1 ! 0 active_dz1 !
+      0 active_dx2 ! 1 active_dy2 ! 0 active_dz2 !
+      0 active_dx3 ! 1 active_dy3 ! -1 active_dz3 !
+    THEN THEN
+  ELSE
+    active_piece_type @ 0 0 get-piece-coord active_dz0 ! active_dx0 ! 0 active_dy0 !
+    active_piece_type @ 0 1 get-piece-coord active_dz1 ! active_dx1 ! 0 active_dy1 !
+    active_piece_type @ 0 2 get-piece-coord active_dz2 ! active_dx2 ! 0 active_dy2 !
+    active_piece_type @ 0 3 get-piece-coord active_dz3 ! active_dx3 ! 0 active_dy3 !
+  THEN
+;
+
+/// ( x y z dx0 dy0 dz0 dx1 dy1 dz1 dx2 dy2 dz2 dx3 dy3 dz3 -- bool )
+: check-collision-with-offsets
+  temp_dz3 !
+  temp_dy3 !
+  temp_dx3 !
+  temp_dz2 !
+  temp_dy2 !
+  temp_dx2 !
+  temp_dz1 !
+  temp_dy1 !
+  temp_dx1 !
+  temp_dz0 !
+  temp_dy0 !
+  temp_dx0 !
+  temp_coll_z !
+  temp_coll_y !
+  temp_coll_x !
+
+  // Backup active offsets
+  active_dx0 @ backup_dx0 !
+  active_dy0 @ backup_dy0 !
+  active_dz0 @ backup_dz0 !
+  active_dx1 @ backup_dx1 !
+  active_dy1 @ backup_dy1 !
+  active_dz1 @ backup_dz1 !
+  active_dx2 @ backup_dx2 !
+  active_dy2 @ backup_dy2 !
+  active_dz2 @ backup_dz2 !
+  active_dx3 @ backup_dx3 !
+  active_dy3 @ backup_dy3 !
+  active_dz3 @ backup_dz3 !
+
+  // Set active offsets to candidates
+  temp_dx0 @ active_dx0 !
+  temp_dy0 @ active_dy0 !
+  temp_dz0 @ active_dz0 !
+  temp_dx1 @ active_dx1 !
+  temp_dy1 @ active_dy1 !
+  temp_dz1 @ active_dz1 !
+  temp_dx2 @ active_dx2 !
+  temp_dy2 @ active_dy2 !
+  temp_dz2 @ active_dz2 !
+  temp_dx3 @ active_dx3 !
+  temp_dy3 @ active_dy3 !
+  temp_dz3 @ active_dz3 !
+
+  // Check collision
+  active_grid_id @ temp_coll_x @ temp_coll_y @ temp_coll_z @ gl-grid-check-collision temp_coll_res !
+
+  // Restore active offsets
+  backup_dx0 @ active_dx0 !
+  backup_dy0 @ active_dy0 !
+  backup_dz0 @ active_dz0 !
+  backup_dx1 @ active_dx1 !
+  backup_dy1 @ active_dy1 !
+  backup_dz1 @ active_dz1 !
+  backup_dx2 @ active_dx2 !
+  backup_dy2 @ active_dy2 !
+  backup_dz2 @ active_dz2 !
+  backup_dx3 @ active_dx3 !
+  backup_dy3 @ active_dy3 !
+  backup_dz3 @ active_dz3 !
+
+  temp_coll_res @
+;
+
+// ( x y z rotation -- bool )
+: check-collision-at
+  pop // pop rotation
+  temp_coll_z !
+  temp_coll_y !
+  temp_coll_x !
+  active_grid_id @ temp_coll_x @ temp_coll_y @ temp_coll_z @ gl-grid-check-collision
 ;
 
 // --- Piece Spawning & Locking ---
+
+: get-random-piece-count
+  grid_d @ 1 > enable_tetracubes @ 1 == * IF 10 ELSE 7 THEN
+;
+
+: next-prng-val
+  temp_seed !
+  temp_seed @ 48271 *
+  2147483647 mod
+;
+
+: randomize-starting-pos
+  // Generate random X seed using global_seed
+  global_seed @ next-prng-val global_seed !
+  
+  // Map to X coordinate
+  grid_w @ 4 > IF
+    // Spawn randomly in [2, grid_w - 3]
+    2
+    global_seed @
+    grid_w @ 4 - mod +
+    active_piece_x !
+  ELSE
+    grid_w @ 2 / active_piece_x !
+  THEN
+
+  // Generate random Y seed using global_seed
+  global_seed @ next-prng-val global_seed !
+
+  // Map to Y coordinate
+  grid_d @ 4 > IF
+    // Spawn randomly in [2, grid_d - 3]
+    2
+    global_seed @
+    grid_d @ 4 - mod +
+    active_piece_y !
+  ELSE
+    grid_d @ 1 > IF
+      grid_d @ 2 / active_piece_y !
+    ELSE
+      0 active_piece_y !
+    THEN
+  THEN
+
+  // Z-height
+  grid_h @ 1 - active_piece_z !
+;
+
+: apply-random-rotations
+  global_seed @ next-prng-val global_seed !
+  global_seed @ 15 mod 5 + temp_rot_count !
+  
+  BEGIN temp_rot_count @ 0 > WHILE
+    global_seed @ next-prng-val global_seed !
+    
+    grid_d @ 1 <= IF
+      // 2D mode: only Z axis rotation
+      rotate-z-plus
+    ELSE
+      // 3D mode: X, Y, or Z axis rotation
+      global_seed @ 3 mod temp_axis !
+      temp_axis @ 0 == IF
+        rotate-z-plus
+      ELSE
+      temp_axis @ 1 == IF
+        rotate-x-plus
+      ELSE
+        rotate-y-plus
+      THEN THEN
+    THEN
+    
+    temp_rot_count @ 1 - temp_rot_count !
+  REPEAT
+;
+
+: choose-next-piece-type
+  // Step global seed and choose random next piece type
+  global_seed @ next-prng-val global_seed !
+  global_seed @ get-random-piece-count mod next_piece_type !
+;
 
 : spawn-piece
   // Load next piece into active slot
   next_piece_type @ active_piece_type !
   0 active_piece_rot ! // rotation = 0
-  4 active_piece_x ! // x = 4 (centered)
-  19 active_piece_y ! // y = 19 (top)
+  randomize-starting-pos
   
-  // Choose random next piece using the animation cycle variable modulo 7
-  anim_cycle @ 7 mod next_piece_type !
+  init-active-piece-offsets
+  ai_mode @ 0 == IF
+    apply-random-rotations
+  THEN
+  
+  // Choose random next piece
+  choose-next-piece-type
   
   // Immediately check collision on spawn to determine Game Over
-  active_piece_x @ active_piece_y @ active_piece_rot @ check-collision-at IF
+  active_piece_x @ active_piece_y @ active_piece_z @ active_piece_rot @ check-collision-at IF
     1 game_over ! // Set Game Over flag to 1
+    "/stackem_gameover " score @ to-str + " " + grid_w @ to-str + " " + grid_h @ to-str + " " + grid_d @ to-str + " " + enable_tetracubes @ to-str + " " + ai_played @ to-str + send-line
+  ELSE
+    trigger-ai-move
   THEN
 ;
 
-// Shift all rows above 'y' downward, clearing row 19
+// Shift all rows above 'y' downward, clearing row grid_h-1
 // ( y -- )
+// Shift all planes above 'z' downward, clearing plane grid_h-1
+// ( z -- )
 : clear-and-shift-down
-  temp_shift_target_y ! // target y
+  temp_shift_target_z ! // target z (height)
   
-  temp_shift_target_y @ BEGIN dup 19 < WHILE
-    dup temp_shift_current_y ! // current y
-    
-    // Copy row above to current row
-    0 BEGIN dup 10 < WHILE
-      dup temp_shift_x ! // x
-      temp_shift_x @ temp_shift_current_y @ 1 + grid-get // val from row above
-      temp_shift_x @ temp_shift_current_y @ rot grid-set // set to current row
-      1 +
-    REPEAT
-    pop // pop x
-    
-    1 +
-  REPEAT
-  pop // pop y
+  grid_max_h @ 1 - 0 max grid_max_h !
+  1 force_full_scan !
   
-  // Clear the top row (19)
-  0 BEGIN dup 10 < WHILE
-    dup temp_shift_x !
-    temp_shift_x @ 19 0 grid-set
-    1 +
-  REPEAT
-  pop
+  active_grid_id @ temp_shift_target_z @ gl-grid-shift-down
 ;
 
 // Send highscore update packet back to the server
@@ -383,104 +925,1509 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
   "/setprop me /sys/stackem_highscore " highscore @ to-str + send-line
 ;
 
-// Scan the grid for complete lines, clear them, shift down, and update scores
-: check-lines
-  0 temp_lines_cleared ! // count of lines cleared this scan
-  0 BEGIN dup 20 < WHILE
-    dup temp_lines_y ! // current y
+: get-leaderboard-name // ( rank -- name )
+  dup 1 == IF pop "[LEADERBOARD_NAME_1]" ELSE
+  dup 2 == IF pop "[LEADERBOARD_NAME_2]" ELSE
+  dup 3 == IF pop "[LEADERBOARD_NAME_3]" ELSE
+  dup 4 == IF pop "[LEADERBOARD_NAME_4]" ELSE
+  dup 5 == IF pop "[LEADERBOARD_NAME_5]" ELSE
+  dup 6 == IF pop "[LEADERBOARD_NAME_6]" ELSE
+  dup 7 == IF pop "[LEADERBOARD_NAME_7]" ELSE
+  dup 8 == IF pop "[LEADERBOARD_NAME_8]" ELSE
+  dup 9 == IF pop "[LEADERBOARD_NAME_9]" ELSE
+  dup 10 == IF pop "[LEADERBOARD_NAME_10]" ELSE
+  pop ""
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+: get-leaderboard-score // ( rank -- score )
+  dup 1 == IF pop [LEADERBOARD_SCORE_1] ELSE
+  dup 2 == IF pop [LEADERBOARD_SCORE_2] ELSE
+  dup 3 == IF pop [LEADERBOARD_SCORE_3] ELSE
+  dup 4 == IF pop [LEADERBOARD_SCORE_4] ELSE
+  dup 5 == IF pop [LEADERBOARD_SCORE_5] ELSE
+  dup 6 == IF pop [LEADERBOARD_SCORE_6] ELSE
+  dup 7 == IF pop [LEADERBOARD_SCORE_7] ELSE
+  dup 8 == IF pop [LEADERBOARD_SCORE_8] ELSE
+  dup 9 == IF pop [LEADERBOARD_SCORE_9] ELSE
+  dup 10 == IF pop [LEADERBOARD_SCORE_10] ELSE
+  pop 0
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+: get-leaderboard-has-rec // ( rank -- has_rec )
+  dup 1 == IF pop [LEADERBOARD_HAS_REC_1] ELSE
+  dup 2 == IF pop [LEADERBOARD_HAS_REC_2] ELSE
+  dup 3 == IF pop [LEADERBOARD_HAS_REC_3] ELSE
+  dup 4 == IF pop [LEADERBOARD_HAS_REC_4] ELSE
+  dup 5 == IF pop [LEADERBOARD_HAS_REC_5] ELSE
+  dup 6 == IF pop [LEADERBOARD_HAS_REC_6] ELSE
+  dup 7 == IF pop [LEADERBOARD_HAS_REC_7] ELSE
+  dup 8 == IF pop [LEADERBOARD_HAS_REC_8] ELSE
+  dup 9 == IF pop [LEADERBOARD_HAS_REC_9] ELSE
+  dup 10 == IF pop [LEADERBOARD_HAS_REC_10] ELSE
+  pop 0
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+
+: get-line-clear-multiplier // ( lines -- mult )
+  dup 2 == IF pop 3 ELSE
+  dup 3 == IF pop 6 ELSE
+  dup 4 >= IF pop 10 ELSE
+  pop 1
+  THEN THEN THEN
+;
+
+: count-complete-planes // ( -- count )
+  0 temp_lines_cleared !
+  0 temp_lines_z !
+  
+  BEGIN temp_lines_z @ grid_h @ < WHILE
+    1 temp_lines_is_full !
     
-    // Check if row is completely full
-    1 temp_lines_is_full ! // is_full = 1
-    0 BEGIN dup 10 < WHILE
-      dup temp_lines_x ! // x
-      temp_lines_x @ temp_lines_y @ grid-get 0 == IF
-        0 temp_lines_is_full ! // empty cell found, is_full = 0
-      THEN
-      1 +
+    0 temp_lines_y !
+    BEGIN
+      temp_lines_is_full @
+      temp_lines_y @ grid_d @ < * WHILE
+      0 temp_lines_x !
+      BEGIN
+        temp_lines_is_full @
+        temp_lines_x @ grid_w @ < * WHILE
+        temp_lines_x @ temp_lines_y @ temp_lines_z @ grid-get 0 == IF
+          0 temp_lines_is_full !
+        THEN
+        temp_lines_x @ 1 + temp_lines_x !
+      REPEAT
+      temp_lines_y @ 1 + temp_lines_y !
     REPEAT
-    pop // pop x
     
     temp_lines_is_full @ IF
-      // Line is full! Shift down.
-      temp_lines_y @ clear-and-shift-down
       temp_lines_cleared @ 1 + temp_lines_cleared !
-      // Keep checking the same index because line above shifted down into it!
-      pop
-      temp_lines_y @
+    THEN
+    temp_lines_z @ 1 + temp_lines_z !
+  REPEAT
+  
+  temp_lines_cleared @
+;
+
+// Scan the grid for complete lines/planes, clear them, shift down, and update scores
+// Scan the grid for complete horizontal planes, clear them, shift down, and update scores
+: check-lines
+  0 temp_lines_z ! // height (z)
+  
+  BEGIN temp_lines_z @ grid_h @ < WHILE
+    1 temp_lines_is_full ! // is_full = 1
+    
+    0 temp_lines_y ! // depth (y)
+    BEGIN
+      temp_lines_is_full @
+      temp_lines_y @ grid_d @ < * WHILE
+      0 temp_lines_x ! // width (x)
+      BEGIN
+        temp_lines_is_full @
+        temp_lines_x @ grid_w @ < * WHILE
+        temp_lines_x @ temp_lines_y @ temp_lines_z @ grid-get 0 == IF
+          0 temp_lines_is_full ! // empty cell found, is_full = 0
+        THEN
+        temp_lines_x @ 1 + temp_lines_x !
+      REPEAT
+      temp_lines_y @ 1 + temp_lines_y !
+    REPEAT
+    
+    temp_lines_is_full @ IF
+      temp_lines_z @ clearing_plane_z !
+      0 clearing_timer !
+      grid_h @ temp_lines_z ! // Break loop
     ELSE
-      1 +
+      temp_lines_z @ 1 + temp_lines_z !
     THEN
   REPEAT
-  pop // pop y
-  
-  // Calculate score increments
-  temp_lines_cleared @ 0 > IF
-    // 4 lines cleared = Tetris bonus
-    temp_lines_cleared @ 4 == IF
-      score @ 800 + score !
-    ELSE
-      score @ temp_lines_cleared @ 100 * + score !
-    THEN
-    
-    // Check if new score exceeds high score
-    score @ highscore @ > IF
-      score @ highscore !
-      save-highscore
-    THEN
-  THEN
 ;
 
 // Lock active piece into the static grid
 : lock-piece
-  0 BEGIN dup 4 < WHILE
-    dup temp_lock_block ! // block index
-    
-    active_piece_type @ active_piece_rot @ temp_lock_block @ get-piece-coord // dx dy
-    active_piece_y @ + temp_lock_y ! // y
-    active_piece_x @ + temp_lock_x ! // x
-    
-    // Write piece ID + 1 into the grid cell
-    temp_lock_y @ 20 < IF
-      temp_lock_x @ temp_lock_y @ active_piece_type @ 1 + grid-set
-    THEN
-    
-    1 +
-  REPEAT
-  pop
+  active_piece_x @ lock_piece_x !
+  active_piece_y @ lock_piece_y !
+  active_piece_z @ lock_piece_z !
+  active_piece_rot @ lock_piece_rot !
+  active_piece_type @ lock_piece_type !
+  active_dx0 @ 905 !
+  active_dy0 @ 906 !
+  active_dz0 @ 907 !
+  active_dx1 @ 908 !
+  active_dy1 @ 909 !
+  active_dz1 @ 910 !
+  active_dx2 @ 911 !
+  active_dy2 @ 912 !
+  active_dz2 @ 913 !
+  active_dx3 @ 914 !
+  active_dy3 @ 915 !
+  active_dz3 @ 916 !
+  1 lock_occurred !
+  active_piece_x @ active_dx0 @ + temp_lock_x !
+  active_piece_y @ active_dy0 @ + temp_lock_y !
+  active_piece_z @ active_dz0 @ + temp_lock_z !
+  temp_lock_z @ grid_h @ < IF
+    temp_lock_x @ temp_lock_y @ temp_lock_z @ active_piece_type @ 1 + update-properties-for-block-change
+    temp_lock_z @ grid_max_h @ max grid_max_h !
+    temp_lock_z @ plane-count-@ 1 + temp_lock_z @ plane-count-!
+    temp_lock_x @ 2 - 0 max search_min_x @ min search_min_x !
+    temp_lock_x @ 2 + grid_w @ 1 - min search_max_x @ max search_max_x !
+    temp_lock_y @ 2 - 0 max search_min_y @ min search_min_y !
+    temp_lock_y @ 2 + grid_d @ 1 - min search_max_y @ max search_max_y !
+  THEN
   
+  active_piece_x @ active_dx1 @ + temp_lock_x !
+  active_piece_y @ active_dy1 @ + temp_lock_y !
+  active_piece_z @ active_dz1 @ + temp_lock_z !
+  temp_lock_z @ grid_h @ < IF
+    temp_lock_x @ temp_lock_y @ temp_lock_z @ active_piece_type @ 1 + update-properties-for-block-change
+    temp_lock_z @ grid_max_h @ max grid_max_h !
+    temp_lock_z @ plane-count-@ 1 + temp_lock_z @ plane-count-!
+    temp_lock_x @ 2 - 0 max search_min_x @ min search_min_x !
+    temp_lock_x @ 2 + grid_w @ 1 - min search_max_x @ max search_max_x !
+    temp_lock_y @ 2 - 0 max search_min_y @ min search_min_y !
+    temp_lock_y @ 2 + grid_d @ 1 - min search_max_y @ max search_max_y !
+  THEN
+  
+  active_piece_x @ active_dx2 @ + temp_lock_x !
+  active_piece_y @ active_dy2 @ + temp_lock_y !
+  active_piece_z @ active_dz2 @ + temp_lock_z !
+  temp_lock_z @ grid_h @ < IF
+    temp_lock_x @ temp_lock_y @ temp_lock_z @ active_piece_type @ 1 + update-properties-for-block-change
+    temp_lock_z @ grid_max_h @ max grid_max_h !
+    temp_lock_z @ plane-count-@ 1 + temp_lock_z @ plane-count-!
+    temp_lock_x @ 2 - 0 max search_min_x @ min search_min_x !
+    temp_lock_x @ 2 + grid_w @ 1 - min search_max_x @ max search_max_x !
+    temp_lock_y @ 2 - 0 max search_min_y @ min search_min_y !
+    temp_lock_y @ 2 + grid_d @ 1 - min search_max_y @ max search_max_y !
+  THEN
+  
+  active_piece_x @ active_dx3 @ + temp_lock_x !
+  active_piece_y @ active_dy3 @ + temp_lock_y !
+  active_piece_z @ active_dz3 @ + temp_lock_z !
+  temp_lock_z @ grid_h @ < IF
+    temp_lock_x @ temp_lock_y @ temp_lock_z @ active_piece_type @ 1 + update-properties-for-block-change
+    temp_lock_z @ grid_max_h @ max grid_max_h !
+    temp_lock_z @ plane-count-@ 1 + temp_lock_z @ plane-count-!
+    temp_lock_x @ 2 - 0 max search_min_x @ min search_min_x !
+    temp_lock_x @ 2 + grid_w @ 1 - min search_max_x @ max search_max_x !
+    temp_lock_y @ 2 - 0 max search_min_y @ min search_min_y !
+    temp_lock_y @ 2 + grid_d @ 1 - min search_max_y @ max search_max_y !
+  THEN
+  
+  count-complete-planes dup 1 max current_wave_lines !
   check-lines
 ;
 
 // --- Gameplay Moves ---
 
 : move-left
-  active_piece_x @ 1 - active_piece_y @ active_piece_rot @ check-collision-at 0 == IF
+  active_piece_x @ 1 - active_piece_y @ active_piece_z @ 0 check-collision-at 0 == IF
     active_piece_x @ 1 - active_piece_x !
   THEN
 ;
 
 : move-right
-  active_piece_x @ 1 + active_piece_y @ active_piece_rot @ check-collision-at 0 == IF
+  active_piece_x @ 1 + active_piece_y @ active_piece_z @ 0 check-collision-at 0 == IF
     active_piece_x @ 1 + active_piece_x !
   THEN
 ;
 
-: rotate-piece
-  active_piece_rot @ 1 + 4 mod temp_rotate_target ! // target rotation
-  active_piece_x @ active_piece_y @ temp_rotate_target @ check-collision-at 0 == IF
-    temp_rotate_target @ active_piece_rot !
+: move-forward
+  active_piece_x @ active_piece_y @ 1 + active_piece_z @ 0 check-collision-at 0 == IF
+    active_piece_y @ 1 + active_piece_y !
+  THEN
+;
+
+: move-backward
+  active_piece_x @ active_piece_y @ 1 - active_piece_z @ 0 check-collision-at 0 == IF
+    active_piece_y @ 1 - active_piece_y !
+  THEN
+;
+
+: rotate-z-plus
+  0 temp_rot_success !
+  grid_d @ 1 <= IF
+    // 2D mode: Rotate in X-Z plane (around Y-axis)
+    active_dz0 @ 0 swap - candidate_dx0 ! 0 candidate_dy0 ! active_dx0 @ candidate_dz0 !
+    active_dz1 @ 0 swap - candidate_dx1 ! 0 candidate_dy1 ! active_dx1 @ candidate_dz1 !
+    active_dz2 @ 0 swap - candidate_dx2 ! 0 candidate_dy2 ! active_dx2 @ candidate_dz2 !
+    active_dz3 @ 0 swap - candidate_dx3 ! 0 candidate_dy3 ! active_dx3 @ candidate_dz3 !
+  ELSE
+    // 3D mode: Rotate in X-Y plane (around Z-axis)
+    active_dy0 @ candidate_dx0 ! active_dx0 @ 0 swap - candidate_dy0 ! active_dz0 @ candidate_dz0 !
+    active_dy1 @ candidate_dx1 ! active_dx1 @ 0 swap - candidate_dy1 ! active_dz1 @ candidate_dz1 !
+    active_dy2 @ candidate_dx2 ! active_dx2 @ 0 swap - candidate_dy2 ! active_dz2 @ candidate_dz2 !
+    active_dy3 @ candidate_dx3 ! active_dx3 @ 0 swap - candidate_dy3 ! active_dz3 @ candidate_dz3 !
+  THEN
+  
+  active_piece_x @ active_piece_y @ active_piece_z @
+  candidate_dx0 @ candidate_dy0 @ candidate_dz0 @
+  candidate_dx1 @ candidate_dy1 @ candidate_dz1 @
+  candidate_dx2 @ candidate_dy2 @ candidate_dz2 @
+  candidate_dx3 @ candidate_dy3 @ candidate_dz3 @
+  check-collision-with-offsets 0 == IF
+    candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+    candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+    candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+    candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+    1 temp_rot_success !
+  THEN
+;
+
+: rotate-z-minus
+  0 temp_rot_success !
+  grid_d @ 1 <= IF
+    // 2D mode: Inverse rotate in X-Z plane
+    active_dz0 @ candidate_dx0 ! 0 candidate_dy0 ! active_dx0 @ 0 swap - candidate_dz0 !
+    active_dz1 @ candidate_dx1 ! 0 candidate_dy1 ! active_dx1 @ 0 swap - candidate_dz1 !
+    active_dz2 @ candidate_dx2 ! 0 candidate_dy2 ! active_dx2 @ 0 swap - candidate_dz2 !
+    active_dz3 @ candidate_dx3 ! 0 candidate_dy3 ! active_dx3 @ 0 swap - candidate_dz3 !
+  ELSE
+    // 3D mode: Inverse rotate in X-Y plane
+    active_dy0 @ 0 swap - candidate_dx0 ! active_dx0 @ candidate_dy0 ! active_dz0 @ candidate_dz0 !
+    active_dy1 @ 0 swap - candidate_dx1 ! active_dx1 @ candidate_dy1 ! active_dz1 @ candidate_dz1 !
+    active_dy2 @ 0 swap - candidate_dx2 ! active_dx2 @ candidate_dy2 ! active_dz2 @ candidate_dz2 !
+    active_dy3 @ 0 swap - candidate_dx3 ! active_dx3 @ candidate_dy3 ! active_dz3 @ candidate_dz3 !
+  THEN
+  
+  active_piece_x @ active_piece_y @ active_piece_z @
+  candidate_dx0 @ candidate_dy0 @ candidate_dz0 @
+  candidate_dx1 @ candidate_dy1 @ candidate_dz1 @
+  candidate_dx2 @ candidate_dy2 @ candidate_dz2 @
+  candidate_dx3 @ candidate_dy3 @ candidate_dz3 @
+  check-collision-with-offsets 0 == IF
+    candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+    candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+    candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+    candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+    1 temp_rot_success !
+  THEN
+;
+
+: rotate-y-plus
+  0 temp_rot_success !
+  active_dz0 @ 0 swap - candidate_dx0 ! active_dy0 @ candidate_dy0 ! active_dx0 @ candidate_dz0 !
+  active_dz1 @ 0 swap - candidate_dx1 ! active_dy1 @ candidate_dy1 ! active_dx1 @ candidate_dz1 !
+  active_dz2 @ 0 swap - candidate_dx2 ! active_dy2 @ candidate_dy2 ! active_dx2 @ candidate_dz2 !
+  active_dz3 @ 0 swap - candidate_dx3 ! active_dy3 @ candidate_dy3 ! active_dx3 @ candidate_dz3 !
+  
+  active_piece_x @ active_piece_y @ active_piece_z @
+  candidate_dx0 @ candidate_dy0 @ candidate_dz0 @
+  candidate_dx1 @ candidate_dy1 @ candidate_dz1 @
+  candidate_dx2 @ candidate_dy2 @ candidate_dz2 @
+  candidate_dx3 @ candidate_dy3 @ candidate_dz3 @
+  check-collision-with-offsets 0 == IF
+    candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+    candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+    candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+    candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+    1 temp_rot_success !
+  THEN
+;
+
+: rotate-y-minus
+  0 temp_rot_success !
+  active_dz0 @ candidate_dx0 ! active_dy0 @ candidate_dy0 ! active_dx0 @ 0 swap - candidate_dz0 !
+  active_dz1 @ candidate_dx1 ! active_dy1 @ candidate_dy1 ! active_dx1 @ 0 swap - candidate_dz1 !
+  active_dz2 @ candidate_dx2 ! active_dy2 @ candidate_dy2 ! active_dx2 @ 0 swap - candidate_dz2 !
+  active_dz3 @ candidate_dx3 ! active_dy3 @ candidate_dy3 ! active_dx3 @ 0 swap - candidate_dz3 !
+  
+  active_piece_x @ active_piece_y @ active_piece_z @
+  candidate_dx0 @ candidate_dy0 @ candidate_dz0 @
+  candidate_dx1 @ candidate_dy1 @ candidate_dz1 @
+  candidate_dx2 @ candidate_dy2 @ candidate_dz2 @
+  candidate_dx3 @ candidate_dy3 @ candidate_dz3 @
+  check-collision-with-offsets 0 == IF
+    candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+    candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+    candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+    candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+    1 temp_rot_success !
+  THEN
+;
+
+: rotate-x-plus
+  0 temp_rot_success !
+  active_dx0 @ candidate_dx0 ! active_dz0 @ 0 swap - candidate_dy0 ! active_dy0 @ candidate_dz0 !
+  active_dx1 @ candidate_dx1 ! active_dz1 @ 0 swap - candidate_dy1 ! active_dy1 @ candidate_dz1 !
+  active_dx2 @ candidate_dx2 ! active_dz2 @ 0 swap - candidate_dy2 ! active_dy2 @ candidate_dz2 !
+  active_dx3 @ candidate_dx3 ! active_dz3 @ 0 swap - candidate_dy3 ! active_dy3 @ candidate_dz3 !
+  
+  active_piece_x @ active_piece_y @ active_piece_z @
+  candidate_dx0 @ candidate_dy0 @ candidate_dz0 @
+  candidate_dx1 @ candidate_dy1 @ candidate_dz1 @
+  candidate_dx2 @ candidate_dy2 @ candidate_dz2 @
+  candidate_dx3 @ candidate_dy3 @ candidate_dz3 @
+  check-collision-with-offsets 0 == IF
+    candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+    candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+    candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+    candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+    1 temp_rot_success !
+  THEN
+;
+
+: rotate-x-minus
+  0 temp_rot_success !
+  active_dx0 @ candidate_dx0 ! active_dz0 @ candidate_dy0 ! active_dy0 @ 0 swap - candidate_dz0 !
+  active_dx1 @ candidate_dx1 ! active_dz1 @ candidate_dy1 ! active_dy1 @ 0 swap - candidate_dz1 !
+  active_dx2 @ candidate_dx2 ! active_dz2 @ candidate_dy2 ! active_dy2 @ 0 swap - candidate_dz2 !
+  active_dx3 @ candidate_dx3 ! active_dz3 @ candidate_dy3 ! active_dy3 @ 0 swap - candidate_dz3 !
+  
+  active_piece_x @ active_piece_y @ active_piece_z @
+  candidate_dx0 @ candidate_dy0 @ candidate_dz0 @
+  candidate_dx1 @ candidate_dy1 @ candidate_dz1 @
+  candidate_dx2 @ candidate_dy2 @ candidate_dz2 @
+  candidate_dx3 @ candidate_dy3 @ candidate_dz3 @
+  check-collision-with-offsets 0 == IF
+    candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+    candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+    candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+    candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+    1 temp_rot_success !
   THEN
 ;
 
 : move-down
-  active_piece_x @ active_piece_y @ 1 - active_piece_rot @ check-collision-at 0 == IF
-    active_piece_y @ 1 - active_piece_y !
+  active_piece_x @ active_piece_y @ active_piece_z @ 1 - 0 check-collision-at 0 == IF
+    active_piece_z @ 1 - active_piece_z !
     0 // not locked
   ELSE
     lock-piece
-    spawn-piece
+    clearing_plane_z @ -1 == IF
+      spawn-piece
+    THEN
     1 // locked
   THEN
+;
+
+// --- AI Mode Helper Routines ---
+
+: rotate-z-plus-no-coll
+  grid_d @ 1 <= IF
+    // 2D mode: Rotate in X-Z plane (around Y-axis)
+    active_dz0 @ 0 swap - candidate_dx0 ! 0 candidate_dy0 ! active_dx0 @ candidate_dz0 !
+    active_dz1 @ 0 swap - candidate_dx1 ! 0 candidate_dy1 ! active_dx1 @ candidate_dz1 !
+    active_dz2 @ 0 swap - candidate_dx2 ! 0 candidate_dy2 ! active_dx2 @ candidate_dz2 !
+    active_dz3 @ 0 swap - candidate_dx3 ! 0 candidate_dy3 ! active_dx3 @ candidate_dz3 !
+  ELSE
+    // 3D mode: Rotate in X-Y plane (around Z-axis)
+    active_dy0 @ candidate_dx0 ! active_dx0 @ 0 swap - candidate_dy0 ! active_dz0 @ candidate_dz0 !
+    active_dy1 @ candidate_dx1 ! active_dx1 @ 0 swap - candidate_dy1 ! active_dz1 @ candidate_dz1 !
+    active_dy2 @ candidate_dx2 ! active_dx2 @ 0 swap - candidate_dy2 ! active_dz2 @ candidate_dz2 !
+    active_dy3 @ candidate_dx3 ! active_dx3 @ 0 swap - candidate_dy3 ! active_dz3 @ candidate_dz3 !
+  THEN
+  
+  candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+  candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+  candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+  candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+;
+
+: rotate-x-plus-no-coll
+  active_dx0 @ candidate_dx0 ! active_dz0 @ 0 swap - candidate_dy0 ! active_dy0 @ candidate_dz0 !
+  active_dx1 @ candidate_dx1 ! active_dz1 @ 0 swap - candidate_dy1 ! active_dy1 @ candidate_dz1 !
+  active_dx2 @ candidate_dx2 ! active_dz2 @ 0 swap - candidate_dy2 ! active_dy2 @ candidate_dz2 !
+  active_dx3 @ candidate_dx3 ! active_dz3 @ 0 swap - candidate_dy3 ! active_dy3 @ candidate_dz3 !
+  
+  candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+  candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+  candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+  candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+;
+
+: rotate-y-plus-no-coll
+  active_dz0 @ 0 swap - candidate_dx0 ! active_dy0 @ candidate_dy0 ! active_dx0 @ candidate_dz0 !
+  active_dz1 @ 0 swap - candidate_dx1 ! active_dy1 @ candidate_dy1 ! active_dx1 @ candidate_dz1 !
+  active_dz2 @ 0 swap - candidate_dx2 ! active_dy2 @ candidate_dy2 ! active_dx2 @ candidate_dz2 !
+  active_dz3 @ 0 swap - candidate_dx3 ! active_dy3 @ candidate_dy3 ! active_dx3 @ candidate_dz3 !
+  
+  candidate_dx0 @ active_dx0 ! candidate_dy0 @ active_dy0 ! candidate_dz0 @ active_dz0 !
+  candidate_dx1 @ active_dx1 ! candidate_dy1 @ active_dy1 ! candidate_dz1 @ active_dz1 !
+  candidate_dx2 @ active_dx2 ! candidate_dy2 @ active_dy2 ! candidate_dz2 @ active_dz2 !
+  candidate_dx3 @ active_dx3 ! candidate_dy3 @ active_dy3 ! candidate_dz3 @ active_dz3 !
+;
+
+: apply-ai-rotation // ( rot_idx -- )
+  temp_rot_idx !
+  init-active-piece-offsets
+  
+  grid_d @ 1 > IF
+    // 3D mode: test 12 combinations
+    temp_rot_idx @ 4 / temp_axis !
+    temp_rot_idx @ 4 mod temp_z_rot !
+    
+    temp_axis @ 1 == IF
+      rotate-x-plus-no-coll
+    ELSE
+    temp_axis @ 2 == IF
+      rotate-y-plus-no-coll
+    THEN THEN
+    
+    // Now apply Z rotations
+    BEGIN temp_z_rot @ 0 > WHILE
+      rotate-z-plus-no-coll
+      temp_z_rot @ 1 - temp_z_rot !
+    REPEAT
+  ELSE
+    // 2D mode: test 4 Z rotations
+    temp_rot_idx @ temp_z_rot !
+    BEGIN temp_z_rot @ 0 > WHILE
+      rotate-z-plus-no-coll
+      temp_z_rot @ 1 - temp_z_rot !
+    REPEAT
+  THEN
+;
+
+: find-landing-z // ( px py -- landing_z_or_minus_1 )
+  temp_py !
+  temp_px !
+  active_grid_id @ temp_px @ temp_py @ gl-grid-find-landing-z
+;
+
+: set-sim-piece-in-grid // ( val -- )
+  temp_ai_val !
+  temp_px @ active_dx0 @ + temp_py @ active_dy0 @ + temp_pz @ active_dz0 @ + temp_ai_val @ grid-set
+  temp_px @ active_dx1 @ + temp_py @ active_dy1 @ + temp_pz @ active_dz1 @ + temp_ai_val @ grid-set
+  temp_px @ active_dx2 @ + temp_py @ active_dy2 @ + temp_pz @ active_dz2 @ + temp_ai_val @ grid-set
+  temp_px @ active_dx3 @ + temp_py @ active_dy3 @ + temp_pz @ active_dz3 @ + temp_ai_val @ grid-set
+;
+
+: scan-column-properties // ( x y -- height holes )
+  temp_py !
+  temp_px !
+  
+  0 temp_h !
+  0 temp_h_found !
+  0 temp_h_holes !
+  
+  grid_h @ temp_z !
+  BEGIN temp_z @ 0 > WHILE
+    temp_z @ 1 - temp_z !
+    temp_px @ temp_py @ temp_z @ grid-get 0 > IF
+      temp_h_found @ 0 == IF
+        temp_z @ 1 + temp_h !
+        1 temp_h_found !
+      THEN
+    ELSE
+      temp_h_found @ IF
+        temp_h_holes @ 1 + temp_h_holes !
+      THEN
+    THEN
+  REPEAT
+  
+  temp_h @ temp_h_holes @
+;
+
+: get-column-bumpiness-contribution // ( h x y -- bump )
+  temp_py !
+  temp_px !
+  temp_h !
+  0 temp_old_bump !
+  
+  // Left neighbor
+  temp_px @ 1 - 0 >= IF
+    temp_h @ temp_px @ 1 - temp_py @ col-height-@ - abs temp_old_bump @ + temp_old_bump !
+  THEN
+  
+  // Right neighbor
+  temp_px @ 1 + grid_w @ < IF
+    temp_h @ temp_px @ 1 + temp_py @ col-height-@ - abs temp_old_bump @ + temp_old_bump !
+  THEN
+  
+  // Forward/Back neighbor in 3D
+  grid_d @ 1 > IF
+    temp_py @ 1 - 0 >= IF
+      temp_h @ temp_px @ temp_py @ 1 - col-height-@ - abs temp_old_bump @ + temp_old_bump !
+    THEN
+    temp_py @ 1 + grid_d @ < IF
+      temp_h @ temp_px @ temp_py @ 1 + col-height-@ - abs temp_old_bump @ + temp_old_bump !
+    THEN
+  THEN
+  
+  temp_old_bump @
+;
+
+: update-properties-for-block-change // ( bx by bz val -- )
+  temp_val !
+  temp_cz !
+  temp_cy !
+  temp_cx !
+  
+  // 1. Scan column properties before the change
+  temp_cx @ temp_cy @ scan-column-properties temp_old_holes ! temp_old_h !
+  
+  // 2. Set grid value
+  temp_cx @ temp_cy @ temp_cz @ temp_val @ grid-set
+  
+  // 3. Scan column properties after the change
+  temp_cx @ temp_cy @ scan-column-properties temp_new_holes ! temp_new_h !
+  
+  // 4. Update height sum
+  base_height_sum @ temp_old_h @ - temp_new_h @ + base_height_sum !
+  
+  // 5. Update holes
+  base_holes @ temp_old_holes @ - temp_new_holes @ + base_holes !
+  
+  // 6. Update bumpiness
+  temp_old_h @ temp_new_h @ == 0 == IF
+    temp_old_h @ temp_cx @ temp_cy @ get-column-bumpiness-contribution temp_old_bump !
+    base_bumpiness @ temp_old_bump @ - base_bumpiness !
+    
+    temp_new_h @ temp_cx @ temp_cy @ col-height-!
+    
+    temp_new_h @ temp_cx @ temp_cy @ get-column-bumpiness-contribution temp_new_bump !
+    base_bumpiness @ temp_new_bump @ + base_bumpiness !
+  THEN
+;
+
+: place-cand1
+  sim_cand1_active @ 0 == IF
+    cand1_x @ 0 >= cand1_y @ 0 >= * cand1_z @ 0 >= * cand1_rot @ 0 >= * IF
+      active_piece_type @ temp_type !
+      temp_backup_type @ active_piece_type !
+      cand1_x @ temp_px !
+      cand1_y @ temp_py !
+      cand1_z @ temp_pz !
+      cand1_rot @ apply-ai-rotation
+      
+      // Update properties and grid block-by-block
+      cand1_x @ active_dx0 @ + cand1_y @ active_dy0 @ + cand1_z @ active_dz0 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      cand1_x @ active_dx1 @ + cand1_y @ active_dy1 @ + cand1_z @ active_dz1 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      cand1_x @ active_dx2 @ + cand1_y @ active_dy2 @ + cand1_z @ active_dz2 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      cand1_x @ active_dx3 @ + cand1_y @ active_dy3 @ + cand1_z @ active_dz3 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      
+      // Update plane counts
+      cand1_z @ active_dz0 @ + plane-count-@ 1 + cand1_z @ active_dz0 @ + plane-count-!
+      cand1_z @ active_dz1 @ + plane-count-@ 1 + cand1_z @ active_dz1 @ + plane-count-!
+      cand1_z @ active_dz2 @ + plane-count-@ 1 + cand1_z @ active_dz2 @ + plane-count-!
+      cand1_z @ active_dz3 @ + plane-count-@ 1 + cand1_z @ active_dz3 @ + plane-count-!
+      
+      1 sim_cand1_active !
+      temp_type @ active_piece_type !
+      init-active-piece-offsets
+    THEN
+  THEN
+;
+
+: clear-cand1
+  sim_cand1_active @ 1 == IF
+    cand1_x @ 0 >= cand1_y @ 0 >= * cand1_z @ 0 >= * cand1_rot @ 0 >= * IF
+      active_piece_type @ temp_type !
+      temp_backup_type @ active_piece_type !
+      cand1_x @ temp_px !
+      cand1_y @ temp_py !
+      cand1_z @ temp_pz !
+      cand1_rot @ apply-ai-rotation
+      
+      // Update properties and grid block-by-block (set to 0)
+      cand1_x @ active_dx0 @ + cand1_y @ active_dy0 @ + cand1_z @ active_dz0 @ + 0 update-properties-for-block-change
+      cand1_x @ active_dx1 @ + cand1_y @ active_dy1 @ + cand1_z @ active_dz1 @ + 0 update-properties-for-block-change
+      cand1_x @ active_dx2 @ + cand1_y @ active_dy2 @ + cand1_z @ active_dz2 @ + 0 update-properties-for-block-change
+      cand1_x @ active_dx3 @ + cand1_y @ active_dy3 @ + cand1_z @ active_dz3 @ + 0 update-properties-for-block-change
+      
+      // Update plane counts
+      cand1_z @ active_dz0 @ + plane-count-@ 1 - cand1_z @ active_dz0 @ + plane-count-!
+      cand1_z @ active_dz1 @ + plane-count-@ 1 - cand1_z @ active_dz1 @ + plane-count-!
+      cand1_z @ active_dz2 @ + plane-count-@ 1 - cand1_z @ active_dz2 @ + plane-count-!
+      cand1_z @ active_dz3 @ + plane-count-@ 1 - cand1_z @ active_dz3 @ + plane-count-!
+      
+      temp_type @ active_piece_type !
+      init-active-piece-offsets
+    THEN
+    0 sim_cand1_active !
+  THEN
+;
+
+: place-cand2
+  sim_cand2_active @ 0 == IF
+    cand2_x @ 0 >= cand2_y @ 0 >= * cand2_z @ 0 >= * cand2_rot @ 0 >= * IF
+      active_piece_type @ temp_type !
+      temp_backup_type @ active_piece_type !
+      cand2_x @ temp_px !
+      cand2_y @ temp_py !
+      cand2_z @ temp_pz !
+      cand2_rot @ apply-ai-rotation
+      
+      // Update properties and grid block-by-block
+      cand2_x @ active_dx0 @ + cand2_y @ active_dy0 @ + cand2_z @ active_dz0 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      cand2_x @ active_dx1 @ + cand2_y @ active_dy1 @ + cand2_z @ active_dz1 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      cand2_x @ active_dx2 @ + cand2_y @ active_dy2 @ + cand2_z @ active_dz2 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      cand2_x @ active_dx3 @ + cand2_y @ active_dy3 @ + cand2_z @ active_dz3 @ + temp_backup_type @ 1 + update-properties-for-block-change
+      
+      // Update plane counts
+      cand2_z @ active_dz0 @ + plane-count-@ 1 + cand2_z @ active_dz0 @ + plane-count-!
+      cand2_z @ active_dz1 @ + plane-count-@ 1 + cand2_z @ active_dz1 @ + plane-count-!
+      cand2_z @ active_dz2 @ + plane-count-@ 1 + cand2_z @ active_dz2 @ + plane-count-!
+      cand2_z @ active_dz3 @ + plane-count-@ 1 + cand2_z @ active_dz3 @ + plane-count-!
+      
+      temp_backup_type @ 1 + set-sim-piece-in-grid
+      1 sim_cand2_active !
+      temp_type @ active_piece_type !
+      init-active-piece-offsets
+    THEN
+  THEN
+;
+
+: clear-cand2
+  sim_cand2_active @ 1 == IF
+    cand2_x @ 0 >= cand2_y @ 0 >= * cand2_z @ 0 >= * cand2_rot @ 0 >= * IF
+      active_piece_type @ temp_type !
+      temp_backup_type @ active_piece_type !
+      cand2_x @ temp_px !
+      cand2_y @ temp_py !
+      cand2_z @ temp_pz !
+      cand2_rot @ apply-ai-rotation
+      
+      // Update properties and grid block-by-block (set to 0)
+      cand2_x @ active_dx0 @ + cand2_y @ active_dy0 @ + cand2_z @ active_dz0 @ + 0 update-properties-for-block-change
+      cand2_x @ active_dx1 @ + cand2_y @ active_dy1 @ + cand2_z @ active_dz1 @ + 0 update-properties-for-block-change
+      cand2_x @ active_dx2 @ + cand2_y @ active_dy2 @ + cand2_z @ active_dz2 @ + 0 update-properties-for-block-change
+      cand2_x @ active_dx3 @ + cand2_y @ active_dy3 @ + cand2_z @ active_dz3 @ + 0 update-properties-for-block-change
+      
+      // Update plane counts
+      cand2_z @ active_dz0 @ + plane-count-@ 1 - cand2_z @ active_dz0 @ + plane-count-!
+      cand2_z @ active_dz1 @ + plane-count-@ 1 - cand2_z @ active_dz1 @ + plane-count-!
+      cand2_z @ active_dz2 @ + plane-count-@ 1 - cand2_z @ active_dz2 @ + plane-count-!
+      cand2_z @ active_dz3 @ + plane-count-@ 1 - cand2_z @ active_dz3 @ + plane-count-!
+      
+      0 set-sim-piece-in-grid
+      temp_type @ active_piece_type !
+      init-active-piece-offsets
+    THEN
+    0 sim_cand2_active !
+  THEN
+;
+
+: is-cell-filled-simulated // ( x y z -- bool )
+  grid-get 0 >
+;
+
+// Count holes in grid
+: count-grid-holes // ( -- holes )
+  0 temp_holes !
+  0 temp_y !
+  BEGIN temp_y @ grid_d @ < WHILE
+    0 temp_x !
+    BEGIN temp_x @ grid_w @ < WHILE
+      0 temp_found_filled !
+      grid_h @ 1 - temp_z !
+      BEGIN temp_z @ 0 >= WHILE
+        temp_x @ temp_y @ temp_z @ is-cell-filled-simulated IF
+          1 temp_found_filled !
+        ELSE
+          temp_found_filled @ IF
+            temp_holes @ 1 + temp_holes !
+          THEN
+        THEN
+        temp_z @ 1 - temp_z !
+      REPEAT
+      temp_x @ 1 + temp_x !
+    REPEAT
+    temp_y @ 1 + temp_y !
+  REPEAT
+  temp_holes @
+;
+
+// Count completed lines/planes
+: count-completed-lines // ( -- completed_planes )
+  0 temp_completed !
+  0 temp_z !
+  BEGIN temp_z @ grid_h @ < WHILE
+    1 temp_full !
+    0 temp_y !
+    BEGIN temp_y @ grid_d @ < WHILE
+      0 temp_x !
+      BEGIN temp_x @ grid_w @ < WHILE
+        temp_x @ temp_y @ temp_z @ is-cell-filled-simulated 0 == IF
+          0 temp_full !
+        THEN
+        temp_x @ 1 + temp_x !
+      REPEAT
+      temp_y @ 1 + temp_y !
+    REPEAT
+    temp_full @ IF
+      temp_completed @ 1 + temp_completed !
+    THEN
+    temp_z @ 1 + temp_z !
+  REPEAT
+  temp_completed @
+;
+
+: count-grid-properties // ( -- height_sum bumpiness )
+  0 temp_height_sum !
+  0 temp_bumpiness !
+  
+  // 1. Compute and store heights
+  0 temp_y !
+  BEGIN temp_y @ grid_d @ < WHILE
+    0 temp_x !
+    BEGIN temp_x @ grid_w @ < WHILE
+      0 temp_col_h !
+      grid_h @ 1 - temp_z !
+      0 temp_prop_found !
+      BEGIN temp_z @ 0 >= temp_prop_found @ 0 == * WHILE
+        temp_x @ temp_y @ temp_z @ is-cell-filled-simulated IF
+          temp_z @ 1 + temp_col_h !
+          1 temp_prop_found !
+        THEN
+        temp_z @ 1 - temp_z !
+      REPEAT
+      
+      // Store in scratch memory: y * grid_w + x + 20000
+      temp_col_h @
+      temp_y @ grid_w @ * temp_x @ + 20000 + !
+      
+      temp_height_sum @ temp_col_h @ + temp_height_sum !
+      temp_x @ 1 + temp_x !
+    REPEAT
+    temp_y @ 1 + temp_y !
+  REPEAT
+  
+  // 2. Compute bumpiness (X-direction and Y-direction, including boundary transitions to height 0)
+  0 temp_y !
+  BEGIN temp_y @ grid_d @ < WHILE
+    0 temp_x !
+    BEGIN temp_x @ grid_w @ < WHILE
+      
+      // Height of current column
+      temp_y @ grid_w @ * temp_x @ + 20000 + @ temp_col_h !
+      
+      // Compare with right neighbor (x + 1) or right wall
+      temp_x @ 1 + grid_w @ < IF
+        temp_col_h @
+        temp_y @ grid_w @ * temp_x @ + 1 + 20000 + @ - abs
+        temp_bumpiness @ + temp_bumpiness !
+      ELSE
+        temp_col_h @
+        temp_bumpiness @ + temp_bumpiness !
+      THEN
+      
+      // Compare with left wall (x == 0)
+      temp_x @ 0 == IF
+        temp_col_h @
+        temp_bumpiness @ + temp_bumpiness !
+      THEN
+      
+      // Compare with back neighbor (y + 1) or back wall
+      temp_y @ 1 + grid_d @ < IF
+        temp_col_h @
+        temp_y @ 1 + grid_w @ * temp_x @ + 20000 + @ - abs
+        temp_bumpiness @ + temp_bumpiness !
+      ELSE
+        temp_col_h @
+        temp_bumpiness @ + temp_bumpiness !
+      THEN
+      
+      // Compare with front wall (y == 0)
+      temp_y @ 0 == IF
+        temp_col_h @
+        temp_bumpiness @ + temp_bumpiness !
+      THEN
+      
+      temp_x @ 1 + temp_x !
+    REPEAT
+    temp_y @ 1 + temp_y !
+  REPEAT
+  
+  temp_height_sum @
+  temp_bumpiness @
+;
+: col-height-addr // ( x y -- addr )
+  1 + swap 1 + swap
+  grid_w @ 2 + * + grid_end_addr @ +
+;
+
+: col-height-@ // ( x y -- h )
+  col-height-addr heap-@
+;
+
+: col-height-! // ( h x y -- )
+  col-height-addr heap-!
+;
+
+: get-min-neighbor-height // ( x y -- min_neigh_h )
+  temp_py !
+  temp_px !
+  
+  999999 temp_min_h !
+  
+  // Left neighbor
+  temp_px @ 1 - 0 >= IF
+    temp_px @ 1 - temp_py @ col-height-@ temp_min_h @ min temp_min_h !
+  THEN
+  
+  // Right neighbor
+  temp_px @ 1 + grid_w @ < IF
+    temp_px @ 1 + temp_py @ col-height-@ temp_min_h @ min temp_min_h !
+  THEN
+  
+  // Forward/Back neighbor in 3D
+  grid_d @ 1 > IF
+    temp_py @ 1 - 0 >= IF
+      temp_px @ temp_py @ 1 - col-height-@ temp_min_h @ min temp_min_h !
+    THEN
+    temp_py @ 1 + grid_d @ < IF
+      temp_px @ temp_py @ 1 + col-height-@ temp_min_h @ min temp_min_h !
+    THEN
+  THEN
+  
+  temp_min_h @
+;
+
+: plane-count-@ // ( z -- count )
+  400 + @
+;
+
+: plane-count-! // ( count z -- )
+  400 + !
+;
+
+: precompute-base-properties
+  0 base_height_sum !
+  0 base_holes !
+  0 base_bumpiness !
+  
+  grid_w @ 2 / 1 - 0 max new_min_x !
+  grid_w @ 2 / 1 + grid_w @ 1 - min new_max_x !
+  grid_d @ 2 / 1 - 0 max new_min_y !
+  grid_d @ 2 / 1 + grid_d @ 1 - min new_max_y !
+  
+  search_min_x @ precompute_min_x !
+  search_max_x @ precompute_max_x !
+  search_min_y @ precompute_min_y !
+  search_max_y @ precompute_max_y !
+  
+  precompute_max_x @ precompute_min_x @ - 1 + precompute_span_x !
+  precompute_max_y @ precompute_min_y @ - 1 + precompute_span_x @ * precompute_total_cols !
+  
+  // Initialize plane counts to 0
+  0 temp_z !
+  BEGIN temp_z @ grid_h @ < WHILE
+    0 temp_z @ plane-count-!
+    temp_z @ 1 + temp_z !
+  REPEAT
+  
+  // Determine search Z scan height dynamically
+  grid_max_h @
+  sim_cand1_active @ IF
+    cand1_z @ 4 + max
+  THEN
+  sim_cand2_active @ IF
+    cand2_z @ 4 + max
+  THEN
+  grid_h @ 1 - min
+  temp_scan_h !
+  
+  1 precompute_state !
+  0 precompute_idx !
+;
+
+: tick-precompute
+  0 temp_tick_cols !
+  1000 temp_tick_limit ! // Process up to 1000 columns per tick asynchronously
+  
+  grid_w @ grid_d @ * temp_wd !
+  
+  BEGIN
+    precompute_state @ 0 >
+    temp_tick_cols @ temp_tick_limit @ < * WHILE
+    
+    precompute_state @ 1 == IF
+      // Height/holes scan
+      precompute_idx @ precompute_span_x @ mod precompute_min_x @ + temp_x !
+      precompute_idx @ precompute_span_x @ / precompute_min_y @ + temp_y !
+      
+      0 temp_col_h !
+      0 temp_found !
+      0 temp_found_filled !
+      
+      force_full_scan @ IF
+        temp_scan_h @
+      ELSE
+        temp_x @ temp_y @ col-height-@
+      THEN
+      temp_z !
+      
+      temp_z @ 0 > IF
+        temp_z @ 1 - temp_wd @ *
+        grid_w @ temp_y @ * +
+        temp_x @ +
+        20000 + temp_addr !
+        
+        temp_z @ 1 - temp_z !
+        BEGIN temp_z @ 0 >= WHILE
+          temp_addr @ heap-@ 0 > IF
+            1 temp_found_filled !
+            temp_found @ 0 == IF
+              temp_z @ 1 + temp_col_h !
+              1 temp_found !
+            THEN
+            temp_z @ plane-count-@ 1 + temp_z @ plane-count-!
+          ELSE
+            temp_found_filled @ IF
+              base_holes @ 1 + base_holes !
+            THEN
+          THEN
+          temp_addr @ temp_wd @ - temp_addr !
+          temp_z @ 1 - temp_z !
+        REPEAT
+      THEN
+      
+      temp_col_h @ temp_x @ temp_y @ col-height-!
+      
+      temp_col_h @ 0 > IF
+        temp_x @ 2 - 0 max new_min_x @ min new_min_x !
+        temp_x @ 2 + grid_w @ 1 - min new_max_x @ max new_max_x !
+        temp_y @ 2 - 0 max new_min_y @ min new_min_y !
+        temp_y @ 2 + grid_d @ 1 - min new_max_y @ max new_max_y !
+      THEN
+      
+      base_height_sum @ temp_col_h @ + base_height_sum !
+      
+      precompute_idx @ 1 + precompute_idx !
+      precompute_idx @ precompute_total_cols @ >= IF
+        // Finished height/holes scan
+        0 max_possible_clears !
+        0 temp_z !
+        BEGIN temp_z @ grid_h @ < WHILE
+          temp_z @ plane-count-@
+          grid_w @ grid_d @ * 4 - >= IF
+            max_possible_clears @ 1 + max_possible_clears !
+          THEN
+          temp_z @ 1 + temp_z !
+        REPEAT
+        
+        // Copy new bounding box back
+        new_min_x @ search_min_x !
+        new_max_x @ search_max_x !
+        new_min_y @ search_min_y !
+        new_max_y @ search_max_y !
+        
+        // Setup bumpiness bounding box
+        search_min_x @ 1 - 0 max bump_min_x !
+        search_max_x @ bump_max_x !
+        search_min_y @ 1 - 0 max bump_min_y !
+        search_max_y @ bump_max_y !
+        
+        bump_max_x @ bump_min_x @ - 1 + bump_span_x !
+        bump_max_y @ bump_min_y @ - 1 + bump_span_x @ * bump_total_cols !
+        
+        // Transition to bumpiness scan
+        2 precompute_state !
+        0 precompute_idx !
+      THEN
+      
+    ELSE
+    precompute_state @ 2 == IF
+      // Bumpiness scan
+      precompute_idx @ bump_span_x @ mod bump_min_x @ + temp_x !
+      precompute_idx @ bump_span_x @ / bump_min_y @ + temp_y !
+      
+      temp_x @ temp_y @ col-height-@ temp_col_h !
+      
+      // Right neighbor
+      temp_x @ 1 + grid_w @ < IF
+        temp_col_h @ temp_x @ 1 + temp_y @ col-height-@ - abs
+        base_bumpiness @ + base_bumpiness !
+      THEN
+      
+      // Back neighbor
+      temp_y @ 1 + grid_d @ < IF
+        temp_col_h @ temp_x @ temp_y @ 1 + col-height-@ - abs
+        base_bumpiness @ + base_bumpiness !
+      THEN
+      
+      precompute_idx @ 1 + precompute_idx !
+      precompute_idx @ bump_total_cols @ >= IF
+        // Finished bumpiness scan
+        0 precompute_state !
+        0 force_full_scan !
+      THEN
+    THEN THEN
+    
+    temp_tick_cols @ 1 + temp_tick_cols !
+  REPEAT
+;
+
+
+: get-uc-old-h // ( idx -- old_h )
+  dup 0 == IF
+    pop uc0_x @ uc0_y @ col-height-@
+  ELSE dup 1 == IF
+    pop uc1_x @ uc1_y @ col-height-@
+  ELSE dup 2 == IF
+    pop uc2_x @ uc2_y @ col-height-@
+  ELSE
+    pop uc3_x @ uc3_y @ col-height-@
+  THEN THEN THEN
+;
+
+: get-uc-new-h // ( idx -- new_h )
+  dup 0 == IF
+    pop uc0_x @ uc0_y @ col-height-@ uc0_max_z @ 1 + max
+  ELSE dup 1 == IF
+    pop uc1_x @ uc1_y @ col-height-@ uc1_max_z @ 1 + max
+  ELSE dup 2 == IF
+    pop uc2_x @ uc2_y @ col-height-@ uc2_max_z @ 1 + max
+  ELSE
+    pop uc3_x @ uc3_y @ col-height-@ uc3_max_z @ 1 + max
+  THEN THEN THEN
+;
+
+: find-uc-index // ( nx ny -- is_uc idx )
+  temp_py ! temp_px !
+  
+  temp_px @ uc0_x @ == temp_py @ uc0_y @ == * IF
+    1 0
+  ELSE num_uc @ 2 >= temp_px @ uc1_x @ == temp_py @ uc1_y @ == * * IF
+    1 1
+  ELSE num_uc @ 3 >= temp_px @ uc2_x @ == temp_py @ uc2_y @ == * * IF
+    1 2
+  ELSE num_uc @ 4 >= temp_px @ uc3_x @ == temp_py @ uc3_y @ == * * IF
+    1 3
+  ELSE
+    0 0
+  THEN THEN THEN THEN
+;
+
+: process-neighbor-edge
+  temp_rank ! // pop 'i'
+  temp_py ! // pop 'ny'
+  temp_px ! // pop 'nx'
+  temp_idx ! // pop 'idx'
+  temp_found ! // pop 'is_uc'
+  
+  temp_found @ IF
+    temp_rank @ temp_idx @ < IF
+      temp_rank @ get-uc-old-h temp_col_h !
+      temp_rank @ get-uc-new-h temp_z !
+      
+      temp_idx @ get-uc-old-h temp_scratch_h0 !
+      temp_idx @ get-uc-new-h temp_scratch_h1 !
+      
+      temp_bumpiness @ temp_col_h @ temp_scratch_h0 @ - abs - temp_bumpiness !
+      temp_bumpiness @ temp_z @ temp_scratch_h1 @ - abs + temp_bumpiness !
+    THEN
+  ELSE
+    temp_px @ temp_py @ col-height-@ temp_x !
+    
+    temp_rank @ get-uc-old-h temp_col_h !
+    temp_rank @ get-uc-new-h temp_z !
+    
+    temp_bumpiness @ temp_col_h @ temp_x @ - abs - temp_bumpiness !
+    temp_bumpiness @ temp_z @ temp_x @ - abs + temp_bumpiness !
+  THEN
+;
+
+: process-uc-neighbors // ( i -- )
+  uc_neigh_idx !
+  
+  uc_neigh_idx @ 0 == IF
+    uc0_x @ temp_x ! uc0_y @ temp_y !
+  ELSE uc_neigh_idx @ 1 == IF
+    uc1_x @ temp_x ! uc1_y @ temp_y !
+  ELSE uc_neigh_idx @ 2 == IF
+    uc2_x @ temp_x ! uc2_y @ temp_y !
+  ELSE
+    uc3_x @ temp_x ! uc3_y @ temp_y !
+  THEN THEN THEN
+  
+  // Right neighbor
+  temp_x @ 1 + grid_w @ < IF
+    temp_x @ 1 + temp_y @ find-uc-index
+    temp_x @ 1 + temp_y @
+    uc_neigh_idx @
+    process-neighbor-edge
+  THEN
+  
+  // Left neighbor
+  temp_x @ 1 - 0 >= IF
+    temp_x @ 1 - temp_y @ find-uc-index
+    temp_x @ 1 - temp_y @
+    uc_neigh_idx @
+    process-neighbor-edge
+  THEN
+  
+  // Back neighbor
+  temp_y @ 1 + grid_d @ < IF
+    temp_x @ temp_y @ 1 + find-uc-index
+    temp_x @ temp_y @ 1 +
+    uc_neigh_idx @
+    process-neighbor-edge
+  THEN
+  
+  // Front neighbor
+  temp_y @ 1 - 0 >= IF
+    temp_x @ temp_y @ 1 - find-uc-index
+    temp_x @ temp_y @ 1 -
+    uc_neigh_idx @
+    process-neighbor-edge
+  THEN
+;
+
+: should-skip-column? // ( x y -- bool )
+  temp_py !
+  temp_px !
+  
+  temp_px @ temp_py @ col-height-@ 0 == IF
+    temp_px @ 1 + temp_py @ col-height-@ 0 ==
+    temp_px @ 1 - temp_py @ col-height-@ 0 == *
+    temp_px @ temp_py @ 1 + col-height-@ 0 == *
+    temp_px @ temp_py @ 1 - col-height-@ 0 == * IF
+      grid_w @ 2 / temp_px @ - abs 1 >
+      grid_d @ 2 / temp_py @ - abs 1 > + IF
+        1
+      ELSE
+        0
+      THEN
+    ELSE
+      0
+    THEN
+  ELSE
+    0
+  THEN
+;
+
+: should-skip-rotation? // ( rot type -- bool )
+  temp_type !
+  4 mod temp_z_rot !
+  
+  temp_type @ 1 == IF
+    temp_z_rot @ 0 >
+  ELSE
+  temp_type @ 0 ==
+  temp_type @ 5 == +
+  temp_type @ 6 == + IF
+    temp_z_rot @ 2 >=
+  ELSE
+    0
+  THEN THEN
+;
+
+: run-ai-search-init
+  999999 cand1_score !
+  999999 cand2_score !
+  999999 cand1_next_score !
+  999999 cand2_next_score !
+  -1 cand1_x ! -1 cand1_y ! -1 cand1_z ! -1 cand1_rot !
+  -1 cand2_x ! -1 cand2_y ! -1 cand2_z ! -1 cand2_rot !
+  0 ai_best_z !
+  999999 search_best_score !
+  1 ai_search_state !
+;
+
+: run-ai-search-finish
+;
+
+: run-ai-search-step
+  active_grid_id @ 0 gl-grid-run-search
+  cand1_score @ 999999 < IF
+    active_grid_id @ 1 gl-grid-run-search
+    search_best_score @ cand1_next_score !
+  ELSE
+    999999 cand1_next_score !
+  THEN
+  cand2_score @ 999999 < IF
+    active_grid_id @ 2 gl-grid-run-search
+    search_best_score @ cand2_next_score !
+  ELSE
+    999999 cand2_next_score !
+  THEN
+  cand1_score @ cand1_next_score @ +
+  cand2_score @ cand2_next_score @ +
+  <= IF
+    cand1_x @ ai_best_x !
+    cand1_y @ ai_best_y !
+    cand1_z @ ai_best_z !
+    cand1_rot @ ai_best_rot !
+    cand1_score @ cand1_next_score @ + ai_best_score !
+  ELSE
+    cand2_x @ ai_best_x !
+    cand2_y @ ai_best_y !
+    cand2_z @ ai_best_z !
+    cand2_rot @ ai_best_rot !
+    cand2_score @ cand2_next_score @ + ai_best_score !
+  THEN
+  0 ai_search_state !
+;
+
+: run-ai-search
+  run-ai-search-init
+  run-ai-search-step
+;
+
+: trigger-ai-move
+  ai_mode @ 1 == IF
+    grid_h @ 1 - active_piece_z !
+    999999 ai_best_score !
+    run-ai-search-init
+  THEN
+;
+
+: ai-play-tick
+  1 ai_played !
+  ai_search_state @ 1 == IF
+    run-ai-search-step
+    
+    ai_search_state @ 0 == IF
+      init-active-piece-offsets
+      grid_d @ 1 > IF
+        ai_best_rot @ 4 / ai_target_axis !
+        ai_best_rot @ 4 mod ai_target_z_rot !
+      ELSE
+        0 ai_target_axis !
+        ai_best_rot @ ai_target_z_rot !
+      THEN
+      0 ai_current_axis_done !
+      0 ai_current_z_rot_done !
+      0 ai_move_cooldown !
+    THEN
+  THEN
+
+  ai_best_score @ 999999 < IF
+    ai_move_cooldown @ 0 > IF
+      ai_move_cooldown @ 1 - ai_move_cooldown !
+    ELSE
+      
+      // Determine targets for movement
+      ai_best_x @ temp_tx !
+      ai_best_y @ temp_ty !
+      
+      // Check if straight vertical path is blocked by an overhang
+      // Apply target rotation first to check collision/landing accurately, backing up and restoring active piece offsets
+      active_dx0 @ ai_backup_dx0 ! active_dy0 @ ai_backup_dy0 ! active_dz0 @ ai_backup_dz0 !
+      active_dx1 @ ai_backup_dx1 ! active_dy1 @ ai_backup_dy1 ! active_dz1 @ ai_backup_dz1 !
+      active_dx2 @ ai_backup_dx2 ! active_dy2 @ ai_backup_dy2 ! active_dz2 @ ai_backup_dz2 !
+      active_dx3 @ ai_backup_dx3 ! active_dy3 @ ai_backup_dy3 ! active_dz3 @ ai_backup_dz3 !
+      
+      ai_best_rot @ apply-ai-rotation
+      ai_best_x @ ai_best_y @ find-landing-z temp_lz !
+      
+      temp_lz @ ai_best_z @ > IF
+        // Overhang exists! Find clear adjacent column
+        0 temp_found !
+        
+        // Check Left (ai_best_x - 1)
+        ai_best_x @ 1 - 0 >= IF
+          ai_best_x @ 1 - ai_best_y @ find-landing-z ai_best_z @ <= IF
+            ai_best_x @ 1 - temp_tx !
+            1 temp_found !
+          THEN
+        THEN
+        
+        // Check Right (ai_best_x + 1)
+        temp_found @ 0 == IF
+          ai_best_x @ 1 + grid_w @ < IF
+            ai_best_x @ 1 + ai_best_y @ find-landing-z ai_best_z @ <= IF
+              ai_best_x @ 1 + temp_tx !
+              1 temp_found !
+            THEN
+          THEN
+        THEN
+        
+        // Check Forward (ai_best_y - 1) in 3D
+        grid_d @ 1 > IF
+          temp_found @ 0 == IF
+            ai_best_y @ 1 - 0 >= IF
+              ai_best_x @ ai_best_y @ 1 - find-landing-z ai_best_z @ <= IF
+                ai_best_y @ 1 - temp_ty !
+                1 temp_found !
+              THEN
+            THEN
+          THEN
+          
+          // Check Backward (ai_best_y + 1) in 3D
+          temp_found @ 0 == IF
+            ai_best_y @ 1 + grid_d @ < IF
+              ai_best_x @ ai_best_y @ 1 + find-landing-z ai_best_z @ <= IF
+                ai_best_y @ 1 + temp_ty !
+                1 temp_found !
+              THEN
+            THEN
+          THEN
+        THEN
+      THEN
+      
+      ai_backup_dx0 @ active_dx0 ! ai_backup_dy0 @ active_dy0 ! ai_backup_dz0 @ active_dz0 !
+      ai_backup_dx1 @ active_dx1 ! ai_backup_dy1 @ active_dy1 ! ai_backup_dz1 @ active_dz1 !
+      ai_backup_dx2 @ active_dx2 ! ai_backup_dy2 @ active_dy2 ! ai_backup_dz2 @ active_dz2 !
+      ai_backup_dx3 @ active_dx3 ! ai_backup_dy3 @ active_dy3 ! ai_backup_dz3 @ active_dz3 !
+      
+      active_piece_z @ ai_best_z @ > IF
+        // Still above target height: align to the clear adjacent column
+        temp_tx @ temp_target_x !
+        temp_ty @ temp_target_y !
+      ELSE
+        // At or below target height: slide into final X and Y
+        ai_best_x @ temp_target_x !
+        ai_best_y @ temp_target_y !
+      THEN
+      
+      // 1. Rotation alignment first (at spawn height to avoid wall/block collisions)
+      ai_current_axis_done @ 0 == IF
+        ai_target_axis @ 1 == IF
+          rotate-x-plus
+          temp_rot_success @ IF
+            1 ai_current_axis_done !
+          THEN
+        ELSE
+        ai_target_axis @ 2 == IF
+          rotate-y-plus
+          temp_rot_success @ IF
+            1 ai_current_axis_done !
+          THEN
+        ELSE
+          1 ai_current_axis_done !
+        THEN THEN
+        7 ai_move_cooldown !
+      ELSE
+      ai_current_z_rot_done @ ai_target_z_rot @ < IF
+        rotate-z-plus
+        temp_rot_success @ IF
+          ai_current_z_rot_done @ 1 + ai_current_z_rot_done !
+        THEN
+        7 ai_move_cooldown !
+      ELSE
+        
+        // 2. Position alignment
+        // Align X
+        active_piece_x @ temp_target_x @ < IF
+          move-right
+          7 ai_move_cooldown !
+        ELSE
+        active_piece_x @ temp_target_x @ > IF
+          move-left
+          7 ai_move_cooldown !
+        ELSE
+          
+          // Align Y
+          active_piece_y @ temp_target_y @ < IF
+            move-forward
+            7 ai_move_cooldown !
+          ELSE
+          active_piece_y @ temp_target_y @ > IF
+            move-backward
+            7 ai_move_cooldown !
+          ELSE
+            
+            // 3. Drop / slide logic
+            active_piece_z @ ai_best_z @ > IF
+              move-down pop
+              2 ai_move_cooldown !
+            ELSE
+              // At ai_best_z: X/Y alignment must now slide to final target.
+              // If it's already at ai_best_x/y, it will lock.
+              active_piece_x @ ai_best_x @ ==
+              active_piece_y @ ai_best_y @ == * IF
+                move-down pop
+                2 ai_move_cooldown !
+              THEN
+            THEN
+            
+          THEN THEN
+        THEN THEN
+      THEN THEN
+    THEN
+  THEN
+;
+
+: config-send
+  temp_d ! temp_h ! temp_w !
+  "/stackem_config " temp_w @ to-str + " " + temp_h @ to-str + " " + temp_d @ to-str + " " + enable_tetracubes @ to-str + send-line
+;
+
+// Z-Up to Y-Up translation wrapper for draw-model
+: draw-model-zup
+  temp_zup_frame !
+  temp_zup_rz !
+  temp_zup_ry !
+  temp_zup_rx !
+  temp_zup_z3d !
+  temp_zup_y3d !
+  temp_zup_x3d !
+  temp_zup_mesh !
+
+  temp_zup_mesh @
+  temp_zup_x3d @
+  temp_zup_z3d @
+  0 temp_zup_y3d @ -
+  temp_zup_rx @
+  temp_zup_rz @
+  temp_zup_ry @
+  temp_zup_frame @
+  draw-model
+;
+
+: init-voxel-models
+  "tetromino_0" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-2.0,\"xMax\":-1.0,\"yMin\":-0.5,\"yMax\":0.5,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#882255\"},{\"xMin\":-1.0,\"xMax\":0.0,\"yMin\":-0.5,\"yMax\":0.5,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#882255\"},{\"xMin\":0.0,\"xMax\":1.0,\"yMin\":-0.5,\"yMax\":0.5,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#882255\"},{\"xMin\":1.0,\"xMax\":2.0,\"yMin\":-0.5,\"yMax\":0.5,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#882255\"}]}" load-model
+
+  "tetromino_1" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-1.0,\"xMax\":0.0,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#44aa99\"},{\"xMin\":0.0,\"xMax\":1.0,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#44aa99\"},{\"xMin\":-1.0,\"xMax\":0.0,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#44aa99\"},{\"xMin\":0.0,\"xMax\":1.0,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#44aa99\"}]}" load-model
+
+  "tetromino_2" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-1.5,\"xMax\":-0.5,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#117733\"},{\"xMin\":-0.5,\"xMax\":0.5,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#117733\"},{\"xMin\":0.5,\"xMax\":1.5,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#117733\"},{\"xMin\":-0.5,\"xMax\":0.5,\"yMin\":0.25,\"yMax\":1.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#117733\"}]}" load-model
+
+  "tetromino_3" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-1.75,\"xMax\":-0.75,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#4477aa\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#4477aa\"},{\"xMin\":0.25,\"xMax\":1.25,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#4477aa\"},{\"xMin\":0.25,\"xMax\":1.25,\"yMin\":0.25,\"yMax\":1.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#4477aa\"}]}" load-model
+
+  "tetromino_4" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-1.25,\"xMax\":-0.25,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#aa4499\"},{\"xMin\":-0.25,\"xMax\":0.75,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#aa4499\"},{\"xMin\":0.75,\"xMax\":1.75,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#aa4499\"},{\"xMin\":-1.25,\"xMax\":-0.25,\"yMin\":0.25,\"yMax\":1.25,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#aa4499\"}]}" load-model
+
+  "tetromino_5" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-1.5,\"xMax\":-0.5,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#cc6677\"},{\"xMin\":-0.5,\"xMax\":0.5,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#cc6677\"},{\"xMin\":-0.5,\"xMax\":0.5,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#cc6677\"},{\"xMin\":0.5,\"xMax\":1.5,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#cc6677\"}]}" load-model
+
+  "tetromino_6" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-0.5,\"xMax\":0.5,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#ddcc77\"},{\"xMin\":0.5,\"xMax\":1.5,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#ddcc77\"},{\"xMin\":-1.5,\"xMax\":-0.5,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#ddcc77\"},{\"xMin\":-0.5,\"xMax\":0.5,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.5,\"zMax\":0.5,\"color\":\"#ddcc77\"}]}" load-model
+
+  "tetromino_7" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#332288\"},{\"xMin\":0.25,\"xMax\":1.25,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#332288\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":0.25,\"yMax\":1.25,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#332288\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":-0.75,\"yMax\":0.25,\"zMin\":0.25,\"zMax\":1.25,\"color\":\"#332288\"}]}" load-model
+
+  "tetromino_8" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#88ccee\"},{\"xMin\":0.25,\"xMax\":1.25,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#88ccee\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#88ccee\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":0.25,\"zMax\":1.25,\"color\":\"#88ccee\"}]}" load-model
+
+  "tetromino_9" "{\"type\":\"voxel\",\"parts\":[{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#dddddd\"},{\"xMin\":0.25,\"xMax\":1.25,\"yMin\":-1.0,\"yMax\":0.0,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#dddddd\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-0.75,\"zMax\":0.25,\"color\":\"#dddddd\"},{\"xMin\":-0.75,\"xMax\":0.25,\"yMin\":0.0,\"yMax\":1.0,\"zMin\":-1.75,\"zMax\":-0.75,\"color\":\"#dddddd\"}]}" load-model
+;
+
+// Calculate required rows/planes to clear at level L (10 for level 1, +15% per additional level)
+: get-required-rows-for-level // ( level -- required )
+  temp_req !
+  10 // Start with 10 for level 1
+  1 temp_rank !
+  BEGIN temp_rank @ temp_req @ < WHILE
+    dup dup 15 * 100 + * 100 /
+    temp_rank @ 1 + temp_rank !
+  REPEAT
+;
+
+// Reset game state and set initial active/next tetrominoes when gameplay starts
+: init-game
+  0 score !
+  1 game_level !
+  0 cleared_rows_at_level !
+  600 9 game_level @ + / fall_speed !
+  0 game_over !
+  0 fall_timer !
+  1 current_wave_lines !
+  init-grid
+  0 grid_max_h !
+  1 force_full_scan !
+  grid_w @ 2 / 1 - 0 max search_min_x !
+  grid_w @ 2 / 1 + grid_w @ 1 - min search_max_x !
+  grid_d @ 2 / 1 - 0 max search_min_y !
+  grid_d @ 2 / 1 + grid_d @ 1 - min search_max_y !
+  0 precompute_state !
+
+  
+  global_seed @ next-prng-val global_seed !
+  global_seed @ get-random-piece-count mod active_piece_type !
+  0 active_piece_rot !
+  randomize-starting-pos
+  init-active-piece-offsets
+  ai_mode @ 0 == IF
+    apply-random-rotations
+  THEN
+  
+  global_seed @ next-prng-val global_seed !
+  global_seed @ get-random-piece-count mod next_piece_type !
+  0 ai_search_state !
+  0 ai_played !
+  trigger-ai-move
 ;
 
 // --- Variables Initialization ---
@@ -491,23 +2438,54 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
     1 show_grid ! // Show grid = 1
     0 anim_cycle ! // Animation cycle counter = 0
     0 camera_auto_rotate ! // Auto camera rotation = 0
-    0 camera_angle ! // Camera rotation angle = 0 degrees (front-facing)
+    0 camera_angle ! // Camera rotation angle = 0 degrees (default yaw)
+    0 camera_pitch ! // Camera pitch = 0 degrees (default pitch)
+    0 camera_focus_y ! // Camera focus Y = 0 (centered)
+    0 camera_mode !
+    3 auto_rot_speed !
     
-    init-tetromino-table
+    [GRID_W] grid_w !
+    [GRID_H] grid_h !
+    [GRID_D] grid_d !
+    [ENABLE_TETRACUBES] enable_tetracubes !
+    
+    // Dynamically calculate camera distance based on grid size so the entire well fits closer
+    grid_h @ 1 + camera_dist !
+    0 game_started !
+    1 game_level !
+    0 cleared_rows_at_level !
+    [LEADERBOARD_POPUP_OPEN] leaderboard_popup_open !
+    [LEADERBOARD_ACTIVE_INDEX] dropdown_selected_idx !
+    0 dropdown_open_state !
+    -1 clearing_plane_z !
+    0 clearing_timer !
+    -1 last_seen_replay_frame !
+    1 current_wave_lines !
+    
     init-grid
+    init-voxel-models
+    
+    // Seed the global PRNG
+    anim_cycle @ 17 + 1 max global_seed !
     
     // Randomize initial shapes
-    anim_cycle @ 7 mod active_piece_type !
+    global_seed @ next-prng-val global_seed !
+    global_seed @ get-random-piece-count mod active_piece_type !
     0 active_piece_rot !
-    4 active_piece_x !
-    19 active_piece_y !
+    randomize-starting-pos
     
-    anim_cycle @ 3 + 7 mod next_piece_type !
+    init-active-piece-offsets
+    ai_mode @ 0 == IF
+      apply-random-rotations
+    THEN
     
-    30 fall_speed ! // Fall speed = 30 ticks
+    global_seed @ next-prng-val global_seed !
+    global_seed @ get-random-piece-count mod next_piece_type !
+    
+    600 9 game_level @ + / fall_speed ! // Fall speed = drops/sec formula
     0 fall_timer ! // Fall timer = 0
     0 score ! // Score = 0
-    0 game_over ! // Game Over = 0
+    [START_GAME_OVER] game_over ! // Game Over state placeholder
     
     // Server highscore placeholder (replaced on handshake compilation)
     [HIGHSCORE] highscore !
@@ -516,289 +2494,1240 @@ Uses LWJGL/OpenGL 3D meshes for visual depth and standard Swing/AWT 2D GUI eleme
     0 cooldown_right ! // Cooldown right
     0 cooldown_rotate ! // Cooldown rotate
     0 cooldown_soft_drop ! // Cooldown soft drop
+    0 cooldown_hard_drop !
+    0 cooldown_z !
+    0 cooldown_f2 !
+    0 cooldown_menu_keys !
+    0 auto_drop_active !
+    0 lock_delay_timer !
+    0 fall_timer !
+
+    // Initialize keyboard mapping defaults
+    87 bind_forward !
+    65 bind_left !
+    68 bind_right !
+    83 bind_backward !
+    81 bind_rot_z_l !
+    69 bind_rot_z_r !
+    82 bind_rot_x_f !
+    70 bind_rot_x_b !
+    90 bind_rot_y_l !
+    67 bind_rot_y_r !
+    88 bind_down !
+    32 bind_drop !
+    0 bind_waiting !
+    0 customizing_keys !
+    0 last_mouse_x !
+    0 last_mouse_y !
+    0 mouse_dragging !
+    0 ai_mode !
+    0 cooldown_f3 !
+    0 ai_move_cooldown !
+    0 ai_search_state !
+    0 ai_played !
+    grid_w @ 2 / 1 - 0 max search_min_x !
+    grid_w @ 2 / 1 + grid_w @ 1 - min search_max_x !
+    grid_d @ 2 / 1 - 0 max search_min_y !
+    grid_d @ 2 / 1 + grid_d @ 1 - min search_max_y !
+    0 precompute_state !
+    trigger-ai-move
+  THEN
+;
+
+: get-camera-quadrant
+  camera_angle @ 360 + 360 mod temp_ang !
+  temp_ang @ 45 >= temp_ang @ 135 < * IF 1 ELSE
+  temp_ang @ 135 >= temp_ang @ 225 < * IF 2 ELSE
+  temp_ang @ 225 >= temp_ang @ 315 < * IF 3 ELSE
+  0
+  THEN THEN THEN
+;
+
+: move-cam-left
+  get-camera-quadrant dup 0 == IF pop move-left ELSE
+  dup 1 == IF pop move-backward ELSE
+  dup 2 == IF pop move-right ELSE
+  pop move-forward
+  THEN THEN THEN
+;
+
+: move-cam-right
+  get-camera-quadrant dup 0 == IF pop move-right ELSE
+  dup 1 == IF pop move-forward ELSE
+  dup 2 == IF pop move-left ELSE
+  pop move-backward
+  THEN THEN THEN
+;
+
+: move-cam-forward
+  get-camera-quadrant dup 0 == IF pop move-forward ELSE
+  dup 1 == IF pop move-left ELSE
+  dup 2 == IF pop move-backward ELSE
+  pop move-right
+  THEN THEN THEN
+;
+
+: move-cam-backward
+  get-camera-quadrant dup 0 == IF pop move-backward ELSE
+  dup 1 == IF pop move-right ELSE
+  dup 2 == IF pop move-forward ELSE
+  pop move-left
+  THEN THEN THEN
+;
+
+// --- Key Remap Helpers ---
+
+: key-name // ( keycode -- str )
+  dup 32 == IF pop "SPACE" ELSE
+  dup 65 == IF pop "A" ELSE
+  dup 66 == IF pop "B" ELSE
+  dup 67 == IF pop "C" ELSE
+  dup 68 == IF pop "D" ELSE
+  dup 69 == IF pop "E" ELSE
+  dup 70 == IF pop "F" ELSE
+  dup 71 == IF pop "G" ELSE
+  dup 72 == IF pop "H" ELSE
+  dup 73 == IF pop "I" ELSE
+  dup 74 == IF pop "J" ELSE
+  dup 75 == IF pop "K" ELSE
+  dup 76 == IF pop "L" ELSE
+  dup 77 == IF pop "M" ELSE
+  dup 78 == IF pop "N" ELSE
+  dup 79 == IF pop "O" ELSE
+  dup 80 == IF pop "P" ELSE
+  dup 81 == IF pop "Q" ELSE
+  dup 82 == IF pop "R" ELSE
+  dup 83 == IF pop "S" ELSE
+  dup 84 == IF pop "T" ELSE
+  dup 85 == IF pop "U" ELSE
+  dup 86 == IF pop "V" ELSE
+  dup 87 == IF pop "W" ELSE
+  dup 88 == IF pop "X" ELSE
+  dup 89 == IF pop "Y" ELSE
+  dup 90 == IF pop "Z" ELSE
+  dup 262 == IF pop "RIGHT" ELSE
+  dup 263 == IF pop "LEFT" ELSE
+  dup 264 == IF pop "DOWN" ELSE
+  dup 265 == IF pop "UP" ELSE
+  dup 320 == IF pop "KP 0" ELSE
+  dup 321 == IF pop "KP 1" ELSE
+  dup 322 == IF pop "KP 2" ELSE
+  dup 323 == IF pop "KP 3" ELSE
+  dup 324 == IF pop "KP 4" ELSE
+  dup 325 == IF pop "KP 5" ELSE
+  dup 326 == IF pop "KP 6" ELSE
+  dup 327 == IF pop "KP 7" ELSE
+  dup 328 == IF pop "KP 8" ELSE
+  dup 329 == IF pop "KP 9" ELSE
+  to-str
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  THEN THEN THEN THEN THEN
+;
+
+: start-key-capture // ( bind_id -- )
+  dup bind_waiting !
+  client-capture-key
+;
+
+#force-inclusion
+: on-key-captured // ( bind_id keycode -- )
+  swap // ( keycode bind_id -- )
+  dup 1 == IF over bind_forward ! THEN
+  dup 2 == IF over bind_left ! THEN
+  dup 3 == IF over bind_right ! THEN
+  dup 4 == IF over bind_backward ! THEN
+  dup 5 == IF over bind_rot_z_l ! THEN
+  dup 6 == IF over bind_rot_z_r ! THEN
+  dup 7 == IF over bind_rot_x_f ! THEN
+  dup 8 == IF over bind_rot_x_b ! THEN
+  dup 9 == IF over bind_rot_y_l ! THEN
+  dup 10 == IF over bind_rot_y_r ! THEN
+  dup 11 == IF over bind_down ! THEN
+  dup 12 == IF over bind_drop ! THEN
+  pop pop
+  0 bind_waiting !
+;
+
+: check-menu-keys
+  cooldown_f2 @ 0 > IF cooldown_f2 @ 1 - cooldown_f2 ! THEN
+  cooldown_f3 @ 0 > IF cooldown_f3 @ 1 - cooldown_f3 ! THEN
+  cooldown_menu_keys @ 0 > IF cooldown_menu_keys @ 1 - cooldown_menu_keys ! THEN
+  
+  // 1. Check F2 key (GLFW_KEY_F2 = 291)
+  291 key-down? IF
+    leaderboard_popup_open @ 0 == IF
+      cooldown_f2 @ 0 == IF
+        1 game_started !
+        0 ai_mode !
+        init-game
+        0 leaderboard_popup_open !
+        0 customizing_keys !
+        15 cooldown_f2 !
+      THEN
+    THEN
+  ELSE
+    0 cooldown_f2 !
+  THEN
+
+  // 1.1. Check F3 key (GLFW_KEY_F3 = 292)
+  292 key-down? IF
+    leaderboard_popup_open @ 0 == IF
+      cooldown_f3 @ 0 == IF
+        1 game_started !
+        1 ai_mode !
+        init-game
+        0 leaderboard_popup_open !
+        0 customizing_keys !
+        15 cooldown_f3 !
+      THEN
+    THEN
+  ELSE
+    0 cooldown_f3 !
+  THEN
+
+  // 2. Check H (72) or L (76) for showing/hiding leaderboard
+  72 key-down? 76 key-down? + IF
+    cooldown_menu_keys @ 0 == IF
+      leaderboard_popup_open @ 1 == IF
+        0 leaderboard_popup_open !
+        0 dropdown_open_state !
+      ELSE
+        1 leaderboard_popup_open !
+      THEN
+      15 cooldown_menu_keys !
+    THEN
+  ELSE
+    0 cooldown_menu_keys !
   THEN
 ;
 
 // --- Gameplay Input & Timers ---
 
-: handle-input
+: handle-camera-input
+  // Drag camera logic: Right-click drag (both axes) or Left-click drag (pitch only, viewport only)
+  mouse-pos temp_mb ! temp_my ! temp_mx !
+  
+  0 temp_is_dragging !
+  
+  // Right-click is held (anywhere)
+  temp_mb @ 2 / 2 mod 1 == IF
+    1 temp_is_dragging !
+  ELSE
+    // Left-click is held in viewport (leaderboard closed)
+    temp_mb @ 2 mod 1 ==
+    leaderboard_popup_open @ 0 == *
+    temp_mx @ 430 > *
+    temp_mx @ 1170 < * IF
+      2 temp_is_dragging !
+    THEN
+  THEN
+  
+  temp_is_dragging @ 0 > IF
+    mouse_dragging @ 1 == IF
+      temp_mx @ last_mouse_x @ - temp_dx !
+      temp_my @ last_mouse_y @ - temp_dy !
+      
+      temp_is_dragging @ 1 == IF
+        // Right-click drag (yaw & pitch)
+        camera_angle @ temp_dx @ - 360 mod camera_angle !
+        camera_pitch @ temp_dy @ - -90 max 90 min camera_pitch !
+      ELSE
+        // Left-click drag (sliding focal height up/down - double speed)
+        camera_focus_y @ temp_dy @ 2 * +
+        grid_h @ 1 - 50 *
+        dup 0 swap -
+        rot max min
+        camera_focus_y !
+      THEN
+    THEN
+    1 mouse_dragging !
+    temp_mx @ last_mouse_x !
+    temp_my @ last_mouse_y !
+  ELSE
+    0 mouse_dragging !
+  THEN
+
+  // --- CAMERA CONTROLS (Right side of keyboard) ---
+  
+  // 7 - move camera focal point up (stop at top of well)
+  327 key-down? 55 key-down? + IF
+    camera_focus_y @ 15 +
+    grid_h @ 1 - 50 *
+    dup 0 swap -
+    rot max min
+    camera_focus_y !
+  THEN
+  // 1 - move camera focal point down (stop at bottom of well)
+  321 key-down? 49 key-down? + IF
+    camera_focus_y @ 15 -
+    grid_h @ 1 - 50 *
+    dup 0 swap -
+    rot max min
+    camera_focus_y !
+  THEN
+  // 8 - move camera back and downward (stop at antizenith = -90)
+  328 key-down? 56 key-down? + IF
+    camera_pitch @ 2 - -90 max camera_pitch !
+  THEN
+  // 2 - move camera up and forward (stop at zenith = 90)
+  322 key-down? 50 key-down? + IF
+    camera_pitch @ 2 + 90 min camera_pitch !
+  THEN
+  // 4 - revolve left
+  324 key-down? 52 key-down? + IF
+    camera_angle @ 2 - 360 mod camera_angle !
+  THEN
+  // 6 - revolve right
+  326 key-down? 54 key-down? + IF
+    camera_angle @ 2 + 360 mod camera_angle !
+  THEN
+  // - - decrease camera distance (zoom in, stop at 8)
+  45 key-down? 333 key-down? + IF
+    camera_dist @ 8 > IF camera_dist @ 1 - camera_dist ! THEN
+  THEN
+  // + - increase camera distance (zoom out, stop at 60)
+  61 key-down? 334 key-down? + IF
+    camera_dist @ 60 < IF camera_dist @ 1 + camera_dist ! THEN
+  THEN
+;
+
+: handle-gameplay-input
   // Decrement cooldown counters
   cooldown_left @ 0 > IF cooldown_left @ 1 - cooldown_left ! THEN
   cooldown_right @ 0 > IF cooldown_right @ 1 - cooldown_right ! THEN
   cooldown_rotate @ 0 > IF cooldown_rotate @ 1 - cooldown_rotate ! THEN
   cooldown_soft_drop @ 0 > IF cooldown_soft_drop @ 1 - cooldown_soft_drop ! THEN
-  
-  // Left: A (65) or Left Arrow (263)
-  263 key-down? 65 key-down? + IF
+  cooldown_hard_drop @ 0 > IF cooldown_hard_drop @ 1 - cooldown_hard_drop ! THEN
+  cooldown_z @ 0 > IF cooldown_z @ 1 - cooldown_z ! THEN
+
+  // --- GAMEPLAY CONTROLS (Left side/Remapped keys) ---
+
+  // Move Left
+  bind_left @ key-down? IF
     cooldown_left @ 0 == IF
-      move-left
-      15 cooldown_left ! // 15 frame cooldown (250 ms)
+      move-cam-left
+      7 cooldown_left !
     THEN
   ELSE
     0 cooldown_left !
   THEN
   
-  // Right: D (68) or Right Arrow (262)
-  262 key-down? 68 key-down? + IF
+  // Move Right
+  bind_right @ key-down? IF
     cooldown_right @ 0 == IF
-      move-right
-      15 cooldown_right ! // 15 frame cooldown (250 ms)
+      move-cam-right
+      7 cooldown_right !
     THEN
   ELSE
     0 cooldown_right !
   THEN
   
-  // Rotate: W (87) or R (82) or Up Arrow (265)
-  265 key-down? 87 key-down? + 82 key-down? + IF
-    cooldown_rotate @ 0 == IF
-      rotate-piece
-      15 cooldown_rotate ! // 15 frame cooldown (250 ms)
+  // Move Forward / Backward (Z axis depth)
+  bind_forward @ key-down? IF
+    cooldown_z @ 0 == IF
+      move-cam-forward
+      7 cooldown_z !
     THEN
   ELSE
-    0 cooldown_rotate !
+    bind_backward @ key-down? IF
+      cooldown_z @ 0 == IF
+        move-cam-backward
+        7 cooldown_z !
+      THEN
+    ELSE
+      0 cooldown_z !
+    THEN
+  THEN
+
+  // Rotations
+  cooldown_rotate @ 0 == IF
+    // Z rotate left
+    bind_rot_z_l @ key-down? IF
+      rotate-z-plus 7 cooldown_rotate !
+    ELSE
+      // Z rotate right
+      bind_rot_z_r @ key-down? IF
+        rotate-z-minus 7 cooldown_rotate !
+      ELSE
+        // X rotate forward
+        bind_rot_x_f @ key-down? IF
+          rotate-x-plus 7 cooldown_rotate !
+        ELSE
+          // X rotate backward
+          bind_rot_x_b @ key-down? IF
+            rotate-x-minus 7 cooldown_rotate !
+          ELSE
+            // Y rotate left
+            bind_rot_y_l @ key-down? IF
+              rotate-y-plus 7 cooldown_rotate !
+            ELSE
+              // Y rotate right
+              bind_rot_y_r @ key-down? IF
+                rotate-y-minus 7 cooldown_rotate !
+              THEN
+            THEN
+          THEN
+        THEN
+      THEN
+    THEN
   THEN
   
-  // Soft Drop: S (83) or Down Arrow (264)
-  264 key-down? 83 key-down? + IF
+  // Move Down (soft drop)
+  bind_down @ key-down? IF
     cooldown_soft_drop @ 0 == IF
       move-down pop
-      3 cooldown_soft_drop ! // 3 frame cooldown (50 ms)
+      2 cooldown_soft_drop !
     THEN
   ELSE
     0 cooldown_soft_drop !
   THEN
+
+  // Auto Drop (hard drop)
+  bind_drop @ key-down? IF
+    cooldown_hard_drop @ 0 == IF
+      1 auto_drop_active !
+      30 cooldown_hard_drop !
+    THEN
+  ELSE
+    0 cooldown_hard_drop !
+  THEN
 ;
 
 : update-fall
-  fall_timer @ 1 + fall_timer !
-  fall_timer @ fall_speed @ >= IF
-    0 fall_timer !
-    move-down pop
+  auto_drop_active @ 1 == IF
+    // Check if colliding below
+    active_piece_x @ active_piece_y @ active_piece_z @ 1 - 0 check-collision-at 1 == IF
+      // Colliding (landed)
+      lock_delay_timer @ 1 + lock_delay_timer !
+      lock_delay_timer @ 10 >= IF
+        0 lock_delay_timer !
+        0 auto_drop_active !
+        move-down pop
+      THEN
+    ELSE
+      // Not colliding (falling)
+      0 lock_delay_timer !
+      fall_timer @ 1 + fall_timer !
+      fall_timer @ 2 >= IF
+        0 fall_timer !
+        move-down pop
+      THEN
+    THEN
+  ELSE
+    fall_timer @ 1 + fall_timer !
+    fall_timer @ fall_speed @ >= IF
+      0 fall_timer !
+      move-down pop
+    THEN
   THEN
 ;
 
 // --- Rendering Routines ---
 
+// Z-Up to Y-Up translation wrapper for draw-mesh
+: draw-mesh-zup
+  temp_zup_rz !
+  temp_zup_ry !
+  temp_zup_rx !
+  temp_zup_z3d !
+  temp_zup_y3d !
+  temp_zup_x3d !
+  temp_zup_mesh !
+
+  temp_zup_mesh @
+  temp_zup_x3d @
+  temp_zup_z3d @
+  0 temp_zup_y3d @ -
+  temp_zup_rx @
+  temp_zup_rz @
+  temp_zup_ry @
+  draw-mesh
+;
+
 // Camera positioning
 : setup-camera
-  // x y z pitch yaw roll
-  0 -1 18 0 camera_angle @ 0 set-camera
+  // Camera transform: x y z pitch yaw roll
+  0 camera_focus_y @ camera_dist @ camera_pitch @ camera_angle @ 0 set-camera
 ;
 
 // Draw a single block in the 3D space
-// ( x y color_idx -- )
+// ( x y z color_idx -- )
 : draw-block-3d
   temp_draw_color ! // color_idx
+  temp_draw_z ! // z
   temp_draw_y ! // y
   temp_draw_x ! // x
-  
-  // Center coordinates around (0,0) in 3D
-  temp_draw_x @ 5 - temp_draw_x3d ! // X_3D
-  temp_draw_y @ 10 - temp_draw_y3d ! // Y_3D
-  
+
+  // Center coordinates around (0,0,0) in 3D (scaled by 100 for precision)
+  temp_draw_x @ 100 * grid_w @ 1 - 50 * - temp_draw_x3d !
+  temp_draw_y @ 100 * grid_d @ 1 - 50 * - temp_draw_y3d !
+  temp_draw_z @ 100 * grid_h @ 1 - 50 * - temp_draw_z3d !
+
   // Map index to color mesh reference
-  temp_draw_color @ 1 == IF "cube_cyan" ELSE
-  temp_draw_color @ 2 == IF "cube_blue" ELSE
-  temp_draw_color @ 3 == IF "cube_orange" ELSE
-  temp_draw_color @ 4 == IF "cube_yellow" ELSE
-  temp_draw_color @ 5 == IF "cube_green" ELSE
-  temp_draw_color @ 6 == IF "cube_magenta" ELSE
-  "cube_red"
-  THEN THEN THEN THEN THEN THEN
-  
-  temp_draw_x3d @ temp_draw_y3d @ 0 0 0 0 draw-mesh
+  temp_draw_color @ 1 == IF "cube_red" ELSE
+  temp_draw_color @ 2 == IF "cube_orange" ELSE
+  temp_draw_color @ 3 == IF "cube_green" ELSE
+  temp_draw_color @ 4 == IF "cube_blue" ELSE
+  temp_draw_color @ 5 == IF "cube_purple" ELSE
+  temp_draw_color @ 6 == IF "cube_pink" ELSE
+  temp_draw_color @ 7 == IF "cube_brown" ELSE
+  temp_draw_color @ 8 == IF "cube_magenta" ELSE
+  temp_draw_color @ 9 == IF "cube_cyan" ELSE
+  "cube_yellow"
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN
+
+  temp_draw_x3d @ temp_draw_y3d @ temp_draw_z3d @ 0 0 0 draw-mesh-zup
 ;
 
 // Draw the static locked board in 3D
 : draw-grid-3d
-  0 BEGIN dup 20 < WHILE
-    dup temp_grid3d_y ! // y
-    0 BEGIN dup 10 < WHILE
-      dup temp_grid3d_x ! // x
-      
-      temp_grid3d_x @ temp_grid3d_y @ grid-get temp_grid3d_val !
-      temp_grid3d_val @ 0 > IF
-        temp_grid3d_x @ temp_grid3d_y @ temp_grid3d_val @ draw-block-3d
-      THEN
-      
-      1 +
-    REPEAT
-    pop
-    1 +
+  grid_w @ grid_h @ grid_d @ draw-grid
+;
+
+// Calculate lowest Z coordinate the piece can fall to
+: find-ghost-z // ( -- ghost_z )
+  active_piece_z @ temp_ghost_z !
+  BEGIN
+    active_piece_x @ active_piece_y @ temp_ghost_z @ 1 - 0 check-collision-at 0 ==
+  WHILE
+    temp_ghost_z @ 1 - temp_ghost_z !
   REPEAT
-  pop
+  temp_ghost_z @
+;
+
+// Draw a single ghost block in 3D space
+// ( x y z color_idx -- )
+: draw-ghost-block-3d
+  temp_draw_color ! // color_idx
+  temp_draw_z ! // z
+  temp_draw_y ! // y
+  temp_draw_x ! // x
+
+  // Center coordinates around (0,0,0) in 3D (scaled by 100 for precision)
+  temp_draw_x @ 100 * grid_w @ 1 - 50 * - temp_draw_x3d !
+  temp_draw_y @ 100 * grid_d @ 1 - 50 * - temp_draw_y3d !
+  temp_draw_z @ 100 * grid_h @ 1 - 50 * - temp_draw_z3d !
+
+  // Map index to ghost color mesh reference
+  temp_draw_color @ 1 == IF "cube_ghost_red" ELSE
+  temp_draw_color @ 2 == IF "cube_ghost_orange" ELSE
+  temp_draw_color @ 3 == IF "cube_ghost_green" ELSE
+  temp_draw_color @ 4 == IF "cube_ghost_blue" ELSE
+  temp_draw_color @ 5 == IF "cube_ghost_purple" ELSE
+  temp_draw_color @ 6 == IF "cube_ghost_pink" ELSE
+  temp_draw_color @ 7 == IF "cube_ghost_brown" ELSE
+  temp_draw_color @ 8 == IF "cube_ghost_magenta" ELSE
+  temp_draw_color @ 9 == IF "cube_ghost_cyan" ELSE
+  "cube_ghost_yellow"
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN
+
+  temp_draw_x3d @ temp_draw_y3d @ temp_draw_z3d @ 0 0 0 draw-mesh-zup
+;
+
+// Draw the landing ghost tetromino in 3D
+: draw-ghost-piece-3d
+  find-ghost-z temp_ghost_z !
+  // Draw only if the ghost position is below the active piece
+  temp_ghost_z @ active_piece_z @ < IF
+    active_piece_x @ active_dx0 @ + active_piece_y @ active_dy0 @ + temp_ghost_z @ active_dz0 @ + active_piece_type @ 1 + draw-ghost-block-3d
+    active_piece_x @ active_dx1 @ + active_piece_y @ active_dy1 @ + temp_ghost_z @ active_dz1 @ + active_piece_type @ 1 + draw-ghost-block-3d
+    active_piece_x @ active_dx2 @ + active_piece_y @ active_dy2 @ + temp_ghost_z @ active_dz2 @ + active_piece_type @ 1 + draw-ghost-block-3d
+    active_piece_x @ active_dx3 @ + active_piece_y @ active_dy3 @ + temp_ghost_z @ active_dz3 @ + active_piece_type @ 1 + draw-ghost-block-3d
+  THEN
 ;
 
 // Draw the active dropping tetromino in 3D
 : draw-active-piece-3d
-  0 BEGIN dup 4 < WHILE
-    dup temp_active_block ! // block index
-    
-    active_piece_type @ active_piece_rot @ temp_active_block @ get-piece-coord // dx dy
-    active_piece_y @ + temp_active_y ! // y
-    active_piece_x @ + temp_active_x ! // x
-    
-    // Draw only if block fits grid space
-    temp_active_x @ 0 >= temp_active_x @ 10 < * temp_active_y @ 0 >= * temp_active_y @ 20 < * IF
-      temp_active_x @ temp_active_y @ active_piece_type @ 1 + draw-block-3d
-    THEN
-    
-    1 +
-  REPEAT
-  pop
+  active_piece_x @ active_dx0 @ + active_piece_y @ active_dy0 @ + active_piece_z @ active_dz0 @ + active_piece_type @ 1 + draw-block-3d
+  active_piece_x @ active_dx1 @ + active_piece_y @ active_dy1 @ + active_piece_z @ active_dz1 @ + active_piece_type @ 1 + draw-block-3d
+  active_piece_x @ active_dx2 @ + active_piece_y @ active_dy2 @ + active_piece_z @ active_dz2 @ + active_piece_type @ 1 + draw-block-3d
+  active_piece_x @ active_dx3 @ + active_piece_y @ active_dy3 @ + active_piece_z @ active_dz3 @ + active_piece_type @ 1 + draw-block-3d
 ;
 
 // Draw left/right columns and bottom board edge to frame the Tetris matrix in 3D
 : draw-frame-3d
-  // Left column (X = -6)
-  -11 BEGIN dup 10 < WHILE
-    dup temp_frame_loop !
-    "cube" -6 temp_frame_loop @ 0 0 0 0 draw-mesh
-    1 +
-  REPEAT
-  pop
-  
-  // Right column (X = 5)
-  -11 BEGIN dup 10 < WHILE
-    dup temp_frame_loop !
-    "cube" 5 temp_frame_loop @ 0 0 0 0 draw-mesh
-    1 +
-  REPEAT
-  pop
-  
-  // Bottom row (Y = -11)
-  -6 BEGIN dup 6 < WHILE
-    dup temp_frame_loop !
-    "cube" temp_frame_loop @ -11 0 0 0 0 draw-mesh
-    1 +
-  REPEAT
-  pop
+  grid_w @ grid_h @ grid_d @ draw-frame
 ;
 
-// Float the next upcoming shape in 3D space on the right side of the screen
+: get-cos-sin // ( idx -- cos_x100 sin_x100 )
+  dup 0 == IF pop 100 0 ELSE
+  dup 1 == IF pop 97 26 ELSE
+  dup 2 == IF pop 87 50 ELSE
+  dup 3 == IF pop 71 71 ELSE
+  dup 4 == IF pop 50 87 ELSE
+  dup 5 == IF pop 26 97 ELSE
+  dup 6 == IF pop 0 100 ELSE
+  dup 7 == IF pop -26 97 ELSE
+  dup 8 == IF pop -50 87 ELSE
+  dup 9 == IF pop -71 71 ELSE
+  dup 10 == IF pop -87 50 ELSE
+  dup 11 == IF pop -97 26 ELSE
+  dup 12 == IF pop -100 0 ELSE
+  dup 13 == IF pop -97 -26 ELSE
+  dup 14 == IF pop -87 -50 ELSE
+  dup 15 == IF pop -71 -71 ELSE
+  dup 16 == IF pop -50 -87 ELSE
+  dup 17 == IF pop -26 -97 ELSE
+  dup 18 == IF pop 0 -100 ELSE
+  dup 19 == IF pop 26 -97 ELSE
+  dup 20 == IF pop 50 -87 ELSE
+  dup 21 == IF pop 71 -71 ELSE
+  dup 22 == IF pop 87 -50 ELSE
+  dup 23 == IF pop 97 -26 ELSE
+  pop 100 0
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN THEN
+;
+
+// Rotate coordinate dx around Y-axis into dx_rot and dz_rot using 24-angle lookup (15-degree steps)
+// ( dx angle -- dx_rot dz_rot )
+: rotate-x-z
+  get-cos-sin
+  temp_sin !
+  temp_cos !
+  
+  dup
+  temp_cos @ *
+  swap
+  temp_sin @ *
+  0 swap -
+;
+
+: deg-to-idx // ( deg -- idx )
+  360 + 360 mod 15 / 24 mod
+;
+
+// Rotate (x, z) by degrees around Y axis (both scaled by 100)
+// ( x_scaled z_scaled deg -- x_rot_scaled z_rot_scaled )
+: rotate-point-y
+  deg-to-idx get-cos-sin
+  temp_sin !
+  temp_cos !
+  temp_draw_z3d ! // z_scaled
+  temp_draw_x3d ! // x_scaled
+  
+  // x_rot = (x * cos - z * sin) / 100
+  temp_draw_x3d @ temp_cos @ *
+  temp_draw_z3d @ temp_sin @ * -
+  100 /
+  
+  // z_rot = (x * sin + z * cos) / 100
+  temp_draw_x3d @ temp_sin @ *
+  temp_draw_z3d @ temp_cos @ * +
+  100 /
+;
+
+/// Float the next upcoming shape in 3D space on the right side of the screen
 : draw-next-piece-3d
-  0 BEGIN dup 4 < WHILE
-    dup temp_next_block !
-    // Retrieve coordinates for next piece (rotation = 0)
-    next_piece_type @ 0 temp_next_block @ get-piece-coord // dx dy
-    swap 11 + swap -6 + // dx+11 dy-6
-    
-    // Map colors to next piece mesh
-    next_piece_type @ 1 == IF "cube_yellow" ELSE
-    next_piece_type @ 2 == IF "cube_magenta" ELSE
-    next_piece_type @ 3 == IF "cube_orange" ELSE
-    next_piece_type @ 4 == IF "cube_blue" ELSE
-    next_piece_type @ 5 == IF "cube_green" ELSE
-    next_piece_type @ 6 == IF "cube_red" ELSE
-    "cube_cyan"
-    THEN THEN THEN THEN THEN THEN
-    
-    rot rot
-    
-    0 0 0 0 draw-mesh
-    1 +
-  REPEAT
-  pop
+  "tetromino_" next_piece_type @ to-str +
+  1325 // x_3d (width, scaled, centered in the UI panel horizontally)
+  0    // y_3d (depth, scaled)
+  -795 // z_3d (height, scaled, centered in the UI panel space vertically)
+  0 // rx
+  0 anim_cycle @ 3 * - 360 mod // ry
+  -20 // rz
+  0 // frame
+  draw-model-zup
+;
+
+: get-slider-track // ( speed -- str )
+  dup 1 == IF pop "[|---------]" ELSE
+  dup 2 == IF pop "[-|--------]" ELSE
+  dup 3 == IF pop "[--|-------]" ELSE
+  dup 4 == IF pop "[---|------]" ELSE
+  dup 5 == IF pop "[----|-----]" ELSE
+  dup 6 == IF pop "[-----|----]" ELSE
+  dup 7 == IF pop "[------|---]" ELSE
+  dup 8 == IF pop "[-------|--]" ELSE
+  dup 9 == IF pop "[--------|-]" ELSE
+  pop "[---------|]"
+  THEN THEN THEN THEN THEN THEN THEN THEN THEN
 ;
 
 // --- Interface/GUI Routines ---
 
 : draw-gui
-  // 1. Stats and Score Deck Panel (Left)
-  100 150 400 600 "Stack 'em - Score Deck" ui-panel
-  
-  130 220 "title" "STACK 'EM (3D TETRIS)" ui-text
-  130 260 "yellow" "Player: [PLAYERNAME]" ui-text
-  130 300 "accent" "Score: " ui-text
-  220 300 "accent" score @ to-str ui-text
-  130 340 "green" "High Score: " ui-text
-  270 340 "green" highscore @ to-str ui-text
-  
-  game_over @ 1 == IF
-    130 420 "red" "GAME OVER!" ui-text
-    130 460 340 45 "RESTART GAME" ui-button IF
+  is_replaying @ 1 == IF
+    // Render Replay HUD
+    30 150 400 680 "Replay Controller" ui-panel
+    
+    // Render Next Piece Panel (Right Side)
+    1170 660 400 170 "UPCOMING PIECE" ui-panel
+    
+    60 220 "title" "REPLAYING GAME" ui-text
+    60 260 "yellow" "Player: [PLAYERNAME]" ui-text
+    60 300 "accent" "Score: " score @ to-str + ui-text
+    60 345 "yellow" "Level: " game_level @ to-str + ui-text
+    
+    60 400 "yellow" "Speed: " ui-text
+    replay_speed_pct @ 100 == IF 60 425 "green" "1.00x" ui-text THEN
+    replay_speed_pct @ 50 == IF 60 425 "yellow" "0.50x" ui-text THEN
+    replay_speed_pct @ 25 == IF 60 425 "yellow" "0.25x" ui-text THEN
+    replay_speed_pct @ 75 == IF 60 425 "yellow" "0.75x" ui-text THEN
+    replay_speed_pct @ 100 > IF
+      60 425 "accent" replay_speed_pct @ 100 / to-str ".00x" + ui-text
+    THEN
+    
+    60 470 140 35 "Slower" ui-button IF
+      replay_speed_pct @ 100 <= IF
+        replay_speed_pct @ 25 > IF replay_speed_pct @ 25 - replay_speed_pct ! THEN
+      ELSE
+        replay_speed_pct @ 100 - replay_speed_pct !
+      THEN
+    THEN
+    220 470 140 35 "Faster" ui-button IF
+      replay_speed_pct @ 100 < IF
+        replay_speed_pct @ 25 + replay_speed_pct !
+      ELSE
+        replay_speed_pct @ 1000 < IF replay_speed_pct @ 100 + replay_speed_pct ! THEN
+      THEN
+    THEN
+    60 520 300 35 replay_paused @ 1 == IF "Play / Resume" ELSE "Pause Replay" THEN ui-button IF
+      replay_paused @ 1 == IF 0 replay_paused ! ELSE 1 replay_paused ! THEN
+    THEN
+    
+    60 570 140 35 "< Step Back" replay_paused @ 0 == ui-button-disabled IF
+      replay_frame_index @ 1 - 0 max replay_frame_index !
+      1 replay_step_request !
+    THEN
+    220 570 140 35 "Step Forth >" replay_paused @ 0 == ui-button-disabled IF
+      replay_frame_index @ 1 + replay_frame_index !
+      1 replay_step_request !
+    THEN
+    
+    60 640 300 45 "Exit Replay" ui-button IF
+      "/stackem_exit_replay" send-line
+    THEN
+    
+    60 700 300 45 "Restart Replay" ui-button IF
+      0 replay_frame_index !
+      1 replay_step_request !
+    THEN
+    
+    60 760 300 25 replay_total_frames @ 0 == IF 0 ELSE replay_frame_index @ 100 * replay_total_frames @ / 100 min 0 max THEN "Frame: " replay_frame_index @ to-str + " / " + replay_total_frames @ to-str + ui-progress-bar
+  ELSE
+    game_started @ 0 == IF
+    // Render setup/config panel
+    30 150 400 680 "Stack 'em - Game Setup" ui-panel
+    
+    60 220 "title" "STACK 'EM (3D TETRIS)" ui-text
+    60 260 "yellow" "Player: [PLAYERNAME]" ui-text
+    
+    60 310 "accent" "CONFIGURE GRID SIZE:" ui-text
+    
+    60 350 35 25 "-" ui-button IF
+      grid_w @ 1 - 4 max grid_w !
       init-grid
-      0 score !
-      0 game_over !
-      anim_cycle @ 7 mod active_piece_type !
-      anim_cycle @ 3 + 7 mod next_piece_type !
-      4 active_piece_x !
-      19 active_piece_y !
-      0 active_piece_rot !
+      grid_w @ grid_h @ grid_d @ config-send
+    THEN
+    105 350 35 25 "+" ui-button IF
+      grid_w @ 1 + 25 min grid_w !
+      init-grid
+      grid_w @ grid_h @ grid_d @ config-send
+    THEN
+    155 353 "yellow" "Width (X): " grid_w @ to-str + ui-text
+    
+    60 390 35 25 "-" ui-button IF
+      grid_h @ 1 - 10 max grid_h !
+      init-grid
+      grid_w @ grid_h @ grid_d @ config-send
+    THEN
+    105 390 35 25 "+" ui-button IF
+      grid_h @ 1 + 25 min grid_h !
+      init-grid
+      grid_w @ grid_h @ grid_d @ config-send
+    THEN
+    155 393 "yellow" "Height (Z): " grid_h @ to-str + ui-text
+    
+    60 430 35 25 "-" ui-button IF
+      grid_d @ 1 - 1 max grid_d !
+      init-grid
+      grid_w @ grid_h @ grid_d @ config-send
+    THEN
+    105 430 35 25 "+" ui-button IF
+      grid_d @ 1 + 25 min grid_d !
+      init-grid
+      grid_w @ grid_h @ grid_d @ config-send
+    THEN
+    155 433 "yellow" "Depth (Y): " grid_d @ to-str + ui-text
+    
+    60 470 110 25 "Toggle 3D" ui-button IF
+      enable_tetracubes @ IF 0 ELSE 1 THEN enable_tetracubes !
+    THEN
+    185 473 "yellow" "3D/2D Mode: " enable_tetracubes @ IF "ON" ELSE "OFF" THEN + ui-text
+    
+    // START GAME button!
+    60 515 300 45 "New Game [F2]" ui-button IF
+      1 game_started !
+      0 ai_mode !
+      init-game
+    THEN
+
+    // START AI GAME button!
+    60 570 300 45 "New AI Game [F3]" ui-button IF
+      1 game_started !
+      1 ai_mode !
+      init-game
+    THEN
+
+    // Back to main menu
+    60 635 300 35 "Return to Main Menu" ui-button IF
+      "/play menu" send-line
+    THEN
+    
+    60 680 300 35 "View Leaderboards" ui-button IF
+      1 leaderboard_popup_open !
     THEN
   ELSE
-    130 420 "green" "STATUS: ACTIVE" ui-text
+    // 1. Stats and Score Deck Panel (Left)
+    30 150 400 680 "Stack 'em - Score Deck" ui-panel
+    
+    60 205 "title" "STACK 'EM (3D TETRIS)" ui-text
+    60 240 "yellow" "Player: [PLAYERNAME]" ui-text
+    60 275 "accent" "Score: " score @ to-str + ui-text
+    60 310 "green" "High Score: " highscore @ to-str + ui-text
+    60 345 "yellow" "Level: " game_level @ to-str + ui-text
+    60 375 "yellow" "Progress: " cleared_rows_at_level @ to-str + " / " + game_level @ get-required-rows-for-level to-str + ui-text
+    
+    
+    game_over @ 1 == IF
+      60 400 "red" "GAME OVER!" ui-text
+      60 430 "yellow" "Final Score: " score @ to-str + ui-text
+      
+      // Restart game button
+      60 480 300 35 "Restart Game" ui-button IF
+        init-game
+      THEN
+      
+      // Return to config button
+      60 535 300 35 "Setup New Game" ui-button IF
+        0 game_started !
+      THEN
+      
+      // Return to menu
+      60 590 300 35 "Return to Main Menu" ui-button IF
+        "/play menu" send-line
+      THEN
+      
+      60 645 300 35 "View Leaderboard" ui-button IF
+        1 leaderboard_popup_open !
+      THEN
+    ELSE
+      60 400 300 35
+      ai_mode @ 1 == IF "AI Mode: ON [Playing]" ELSE "AI Mode: OFF" THEN
+      ui-button IF
+        ai_mode @ 1 == IF
+          0 ai_mode !
+          0 auto_drop_active !
+          ai_search_state @ 1 == IF
+            0 ai_search_state !
+            run-ai-search-finish
+          THEN
+        ELSE
+          1 ai_mode !
+          trigger-ai-move
+        THEN
+      THEN
+      
+      ai_mode @ 1 == IF
+        60 445 "magenta" "STATUS: AI ACTIVE" ui-text
+      ELSE
+        60 445 "green" "STATUS: ACTIVE" ui-text
+      THEN
+      
+      60 480 "accent" "CONTROLS:" ui-text
+      60 510 "yellow" "Move Forward: " bind_forward @ key-name + ui-text
+      60 535 "yellow" "Move Left: " bind_left @ key-name + ui-text
+      60 560 "yellow" "Move Right: " bind_right @ key-name + ui-text
+      60 585 "yellow" "Move Backward: " bind_backward @ key-name + ui-text
+      60 610 "yellow" "Rotate Z: " bind_rot_z_l @ key-name + " / " + bind_rot_z_r @ key-name + ui-text
+      60 635 "yellow" "Rotate X: " bind_rot_x_f @ key-name + " / " + bind_rot_x_b @ key-name + ui-text
+      60 660 "yellow" "Rotate Y: " bind_rot_y_l @ key-name + " / " + bind_rot_y_r @ key-name + ui-text
+      60 685 "yellow" "Soft Drop: " bind_down @ key-name + ui-text
+      60 710 "yellow" "Hard Drop: " bind_drop @ key-name + ui-text
+    THEN
   THEN
-  
-  130 540 "accent" "CONTROLS:" ui-text
-  130 570 "yellow" "A / D / Left / Right : Move" ui-text
-  130 600 "yellow" "W / R / Up : Rotate" ui-text
-  130 630 "yellow" "S / Down : Drop" ui-text
-  
-  // 2. Control and camera deck panel (Right)
-  1100 150 400 600 "Camera & Game Controls" ui-panel
-  
-  1130 220 "title" "BOARD CONTROLS" ui-text
-  
-  // Panning buttons
-  1130 300 160 35 "Rotate Left" ui-button IF
-    camera_angle @ 5 - 360 mod camera_angle !
-  THEN
-  1310 300 160 35 "Rotate Right" ui-button IF
-    camera_angle @ 5 + 360 mod camera_angle !
-  THEN
-  
-  1130 350 340 35 "Reset Camera View" ui-button IF
-    15 camera_angle !
-  THEN
-  
-  1130 400 340 35 "Toggle Auto-Rotation" ui-button IF
-    camera_auto_rotate @ 1 == IF 0 camera_auto_rotate ! ELSE 1 camera_auto_rotate ! THEN
-  THEN
-  
-  camera_auto_rotate @ 1 == IF
-    1130 450 "green" "Auto-Rotation: ACTIVE" ui-text
+  customizing_keys @ 1 == IF
+    // 2. Keyboard Customization Panel (Right)
+    1170 150 400 680 "Configure Controls" ui-panel
+    
+    1200 200 "title" "KEYBOARD CONFIGURATION" ui-text
+    
+    // Row 1: Move Forward
+    1200 240 "yellow" "Forward:" ui-text
+    bind_waiting @ 1 == IF
+      1330 240 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 240 "green" bind_forward @ key-name ui-text
+      1430 235 100 25 "Change" ui-button IF 1 start-key-capture THEN
+    THEN
+    
+    // Row 2: Move Left
+    1200 270 "yellow" "Left:" ui-text
+    bind_waiting @ 2 == IF
+      1330 270 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 270 "green" bind_left @ key-name ui-text
+      1430 265 100 25 "Change" ui-button IF 2 start-key-capture THEN
+    THEN
+    
+    // Row 3: Move Right
+    1200 300 "yellow" "Right:" ui-text
+    bind_waiting @ 3 == IF
+      1330 300 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 300 "green" bind_right @ key-name ui-text
+      1430 295 100 25 "Change" ui-button IF 3 start-key-capture THEN
+    THEN
+    
+    // Row 4: Move Backward
+    1200 330 "yellow" "Backward:" ui-text
+    bind_waiting @ 4 == IF
+      1330 330 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 330 "green" bind_backward @ key-name ui-text
+      1430 325 100 25 "Change" ui-button IF 4 start-key-capture THEN
+    THEN
+    
+    // Row 5: Rot Z Left
+    1200 360 "yellow" "Rotate Z L:" ui-text
+    bind_waiting @ 5 == IF
+      1330 360 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 360 "green" bind_rot_z_l @ key-name ui-text
+      1430 355 100 25 "Change" ui-button IF 5 start-key-capture THEN
+    THEN
+    
+    // Row 6: Rot Z Right
+    1200 390 "yellow" "Rotate Z R:" ui-text
+    bind_waiting @ 6 == IF
+      1330 390 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 390 "green" bind_rot_z_r @ key-name ui-text
+      1430 385 100 25 "Change" ui-button IF 6 start-key-capture THEN
+    THEN
+    
+    // Row 7: Rot X Forward
+    1200 420 "yellow" "Rotate X F:" ui-text
+    bind_waiting @ 7 == IF
+      1330 420 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 420 "green" bind_rot_x_f @ key-name ui-text
+      1430 415 100 25 "Change" ui-button IF 7 start-key-capture THEN
+    THEN
+    
+    // Row 8: Rot X Backward
+    1200 450 "yellow" "Rotate X B:" ui-text
+    bind_waiting @ 8 == IF
+      1330 450 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 450 "green" bind_rot_x_b @ key-name ui-text
+      1430 445 100 25 "Change" ui-button IF 8 start-key-capture THEN
+    THEN
+    
+    // Row 9: Rot Y Left
+    1200 480 "yellow" "Rotate Y L:" ui-text
+    bind_waiting @ 9 == IF
+      1330 480 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 480 "green" bind_rot_y_l @ key-name ui-text
+      1430 475 100 25 "Change" ui-button IF 9 start-key-capture THEN
+    THEN
+    
+    // Row 10: Rot Y Right
+    1200 510 "yellow" "Rotate Y R:" ui-text
+    bind_waiting @ 10 == IF
+      1330 510 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 510 "green" bind_rot_y_r @ key-name ui-text
+      1430 505 100 25 "Change" ui-button IF 10 start-key-capture THEN
+    THEN
+    
+    // Row 11: Move Down
+    1200 540 "yellow" "Move Down:" ui-text
+    bind_waiting @ 11 == IF
+      1330 540 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 540 "green" bind_down @ key-name ui-text
+      1430 535 100 25 "Change" ui-button IF 11 start-key-capture THEN
+    THEN
+    
+    // Row 12: Auto Drop
+    1200 570 "yellow" "Auto Drop:" ui-text
+    bind_waiting @ 12 == IF
+      1330 570 "red" "PRESS KEY..." ui-text
+    ELSE
+      1330 570 "green" bind_drop @ key-name ui-text
+      1430 565 100 25 "Change" ui-button IF 12 start-key-capture THEN
+    THEN
+    
+    1200 610 340 35 "Done & Save" ui-button IF
+      0 customizing_keys !
+    THEN
+    
+    1200 665 "accent" "Camera keys: Numpad 8/2/4/6, +/-" ui-text
   ELSE
-    1130 450 "red" "Auto-Rotation: INACTIVE" ui-text
+    // 2. Control and camera deck panel (Right)
+      1170 150 400 680 "Camera & Game Controls" ui-panel
+      
+      1200 220 "title" "BOARD CONTROLS" ui-text
+      
+      // Panning buttons
+      1200 300 160 35 "Rotate Left" ui-button IF
+        camera_angle @ 5 - 360 mod camera_angle !
+      THEN
+      1380 300 160 35 "Rotate Right" ui-button IF
+        camera_angle @ 5 + 360 mod camera_angle !
+      THEN
+      
+      1200 350 160 35 "Pitch Up" ui-button IF
+        camera_pitch @ 5 + 90 min camera_pitch !
+      THEN
+      1380 350 160 35 "Pitch Down" ui-button IF
+        camera_pitch @ 5 - -90 max camera_pitch !
+      THEN
+      
+      1200 400 340 35 "Reset Camera View" ui-button IF
+        0 camera_angle !
+        0 camera_pitch !
+      THEN
+      
+      1200 450 340 35 "Toggle Auto-Rotation" ui-button IF
+        camera_auto_rotate @ 1 == IF 0 camera_auto_rotate ! ELSE 1 camera_auto_rotate ! THEN
+      THEN
+      
+      camera_auto_rotate @ 1 == IF
+        1200 495 "green" "Auto-Rotation: ACTIVE" ui-text
+        
+        // Speed label
+        1200 525 "yellow" "Speed: " auto_rot_speed @ to-str + " RPM" + ui-text
+        
+        // Slider track
+        1340 525 "accent" auto_rot_speed @ get-slider-track ui-text
+        
+        // Drag track detection
+        mouse-pos temp_mb ! temp_my ! temp_mx !
+        temp_mb @ 2 mod 1 == IF
+          temp_mx @ 1340 >= temp_mx @ 1483 <= * IF
+            temp_my @ 515 >= temp_my @ 545 <= * IF
+              temp_mx @ 1340 - 14 / 1 + 1 max 10 min auto_rot_speed !
+            THEN
+          THEN
+        THEN
+      ELSE
+        1200 495 "red" "Auto-Rotation: INACTIVE" ui-text
+      THEN
+      
+      1200 565 340 35 "Toggle Camera Mode" ui-button IF
+        camera_mode @ 0 == IF 1 camera_mode ! ELSE 0 camera_mode ! THEN
+      THEN
+      
+      camera_mode @ 0 == IF
+        1200 610 "green" "Camera Mode: LOCKED (ORBIT)" ui-text
+      ELSE
+        1200 610 "yellow" "Camera Mode: TRIPOD (FREE)" ui-text
+      THEN
+      
+      // Keyboard configuration launcher button
+      1200 640 340 35 "Configure Keyboard Keys" ui-button IF
+        1 customizing_keys !
+      THEN
+      
+      // Next piece label
+      1200 690 "yellow" "UPCOMING PIECE:" ui-text
+      
+      1200 800 "accent" "Press Esc to Go Back" ui-text
   THEN
-  
-  // Next piece label
-  1130 520 "yellow" "UPCOMING PIECE:" ui-text
-  
-  1130 650 340 35 "Return to Main Menu" ui-button IF
-    "/play menu" send-line
+
+  leaderboard_popup_open @ 1 == IF
+    500 150 600 680 "High Score Leaderboard" ui-panel
+    
+    530 220 540 35 "Category" "[LEADERBOARD_CATEGORIES]" "dark" 1 dropdown_selected_idx dropdown_open_state ui-dropdown IF
+      "/stackem_leaderboard_idx " swap to-str + send-line
+    ELSE
+      pop
+    THEN
+    
+    1 temp_rank !
+    BEGIN temp_rank @ 11 < WHILE
+      temp_rank @ get-leaderboard-name temp_draw_x !
+      temp_rank @ get-leaderboard-score to-str temp_draw_y !
+      temp_rank @ get-leaderboard-has-rec temp_draw_has_rec !
+      
+      temp_draw_x @ "" == IF
+        // empty slot
+      ELSE
+        530 240 temp_rank @ 30 * + "yellow" temp_rank @ to-str ". " + temp_draw_x @ + " : " + temp_draw_y @ + ui-text
+        
+        // Replay button or "no recording available" text
+        temp_draw_has_rec @ 1 == IF
+          800 240 temp_rank @ 30 * + 3 - 65 25 "Replay" ui-button IF
+            "/stackem_request_replay " temp_rank @ to-str + send-line
+          THEN
+        ELSE
+          800 240 temp_rank @ 30 * + "dark" "no recording available" ui-text
+        THEN
+        
+        // Delete button for Gods
+        [IS_GOD] 1 == IF
+          990 240 temp_rank @ 30 * + 3 - 25 25 "X" ui-button IF
+            "/stackem_delete_entry " temp_rank @ to-str + send-line
+          THEN
+        THEN
+      THEN
+      temp_rank @ 1 + temp_rank !
+    REPEAT
+    
+    [IS_GOD] 1 == IF
+      699 800 "red" "Reset Leaderboard" ui-text
+      
+      // Check for click with cooldown
+      cooldown_menu_keys @ 0 == IF
+        mouse-pos temp_mb ! temp_my ! temp_mx !
+        temp_mb @ 2 mod 1 == IF
+          temp_mx @ 689 >= temp_mx @ 911 <= * IF
+            temp_my @ 790 >= temp_my @ 825 <= * IF
+              "/stackem_reset_leaderboard" send-line
+              15 cooldown_menu_keys !
+            THEN
+          THEN
+        THEN
+      THEN
+    THEN
+    
+    700 755 200 35 "Close" ui-button IF
+      0 leaderboard_popup_open !
+      0 dropdown_open_state !
+    THEN
   THEN
-  
-  1130 700 "accent" "Press ESC to return to login / exit." ui-text
+  THEN
+;
+
+: check-camera-grid-change
+  grid_w @ last_cam_grid_w @ == 0 ==
+  grid_h @ last_cam_grid_h @ == 0 == +
+  grid_d @ last_cam_grid_d @ == 0 == + IF
+    // Recalculate camera distance dynamically to fit the grid closer
+    grid_h @ 1 + camera_dist !
+    
+    // Reset camera orientation
+    0 camera_angle !
+    0 camera_pitch !
+    
+    // Store current dimensions
+    grid_w @ last_cam_grid_w !
+    grid_h @ last_cam_grid_h !
+    grid_d @ last_cam_grid_d !
+  THEN
 ;
 
 // --- Main Program Entry Loop ---
 
+: update-clearing-animation
+  clearing_plane_z @ -1 > IF
+    clearing_timer @ 1 + clearing_timer !
+    
+    // Tick 31: Disappear, drop blocks, and spawn the next piece
+    clearing_timer @ 31 >= IF
+      clearing_plane_z @ clear-and-shift-down
+      
+      // Update points/scores for 1 plane cleared
+      grid_w @ grid_d @ *
+      10 game_level @ + *
+      current_wave_lines @ get-line-clear-multiplier *
+      4 game_level @ + *
+      40 /
+      score @ + score !
+      
+      cleared_rows_at_level @ 1 + cleared_rows_at_level !
+      
+      // Level Up Check
+      game_level @ get-required-rows-for-level temp_req !
+      cleared_rows_at_level @ temp_req @ >= IF
+        cleared_rows_at_level @ temp_req @ - cleared_rows_at_level !
+        game_level @ 1 + game_level !
+        600 9 game_level @ + / temp_speed !
+        temp_speed @ 2 < IF 2 temp_speed ! THEN
+        temp_speed @ fall_speed !
+      THEN
+      
+      score @ highscore @ > IF
+        score @ highscore !
+        save-highscore
+      THEN
+      
+      // Reset animation states
+      -1 clearing_plane_z !
+      0 clearing_timer !
+      
+      // Check if there are more lines/planes to clear
+      check-lines
+      
+      // If we finished clearing all lines/planes, spawn the next piece!
+      clearing_plane_z @ -1 == IF
+        spawn-piece
+      THEN
+    THEN
+  THEN
+;
+
 : main
   init-vars
+  check-camera-grid-change
+  check-menu-keys
   
   // Update cycle/animation counters
   anim_cycle @ 1 + 13000 mod anim_cycle !
+  global_seed @ next-prng-val global_seed !
   
   // Handle panning camera
   camera_auto_rotate @ 1 == IF
-    // Slowly cycle camera angle between -15 and 15 degrees
-    anim_cycle @ 30 / 30 mod 15 - camera_angle !
+    anim_cycle @ auto_rot_speed @ * 10 / 360 mod camera_angle !
   THEN
   
-  // Run main gameplay logic if game is not over
-  game_over @ 0 == IF
-    handle-input
-    update-fall
+  // Handle camera input (orbit/zoom/drag) as long as we are not binding a key
+  bind_waiting @ 0 == IF
+    handle-camera-input
   THEN
+  
+  // Run main gameplay logic if game is started, not over, and not in key config menu
+  game_started @ 1 == game_over @ 0 == * customizing_keys @ 0 == * leaderboard_popup_open @ 0 == * IF
+    is_replaying @ 0 == IF
+      clearing_plane_z @ -1 == IF
+        ai_mode @ 1 == IF
+          ai-play-tick
+        ELSE
+          handle-gameplay-input
+        THEN
+        update-fall
+      ELSE
+        update-clearing-animation
+      THEN
+    ELSE
+      // During replay, only run the clearing animation if active, replay is not paused, and the frame index changed!
+      clearing_plane_z @ -1 > replay_paused @ 0 == * IF
+        replay_frame_index @ last_seen_replay_frame @ == 0 == IF
+          update-clearing-animation
+          replay_frame_index @ last_seen_replay_frame !
+        THEN
+      THEN
+    THEN
+  THEN
+
   
   // Render everything
   setup-camera
   draw-grid-3d
-  game_over @ 0 == IF
+  game_started @ 1 == game_over @ 0 == * clearing_plane_z @ -1 == * IF
     draw-active-piece-3d
+    draw-ghost-piece-3d
   THEN
   draw-frame-3d
-  draw-next-piece-3d
+  game_started @ 1 == game_over @ 0 == * customizing_keys @ 0 == * IF
+    draw-next-piece-3d
+  THEN
   draw-gui
 ;
+

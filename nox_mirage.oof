@@ -1,0 +1,588 @@
+// =============================================================================
+//                             NOX MIRAGE GAME
+// =============================================================================
+// A 2D retro MMO style top-down game built entirely using the OOF VM.
+// Features: 3x3 Map Grid (9 maps), smooth camera, collision detection,
+// animations (walking and attacking in 4 directions), and dockable sidebar.
+
+// Modulo helper (a % b)
+: mod
+  over over / * -
+;
+
+// --- Variable Slots ---
+: init_flag 10 ;
+: player_x 20 ;
+: player_y 21 ;
+: player_dir 22 ; // 0=Down, 1=Left, 2=Right, 3=Up
+: player_frame 23 ;
+: anim_tick 24 ;
+: player_state 25 ; // 0=Idle, 1=Walking, 2=Attacking
+: attack_tick 26 ;
+: map_row 27 ; // 0, 1, 2
+: map_col 28 ; // 0, 1, 2
+: sidebar_dock 29 ; // 0=Left, 1=Right
+: highscore 30 ;
+: target_x 31 ;
+: target_y 32 ;
+: was_moving 35 ;
+
+
+// --- Game Constants ---
+: tile_size 64 ;
+: map_tiles_w 15 ;
+: map_tiles_h 12 ;
+: map_width 960 ; // 15 * 64
+: map_height 768 ; // 12 * 64
+
+: init-vars
+  init_flag @ 0 == IF
+    1 init_flag !
+    480 player_x !
+    384 player_y !
+    480 target_x !
+    384 target_y !
+    0 player_dir !
+    0 player_frame !
+    0 anim_tick !
+    0 player_state !
+    0 attack_tick !
+    1 map_row !
+    1 map_col !
+    1 sidebar_dock ! // Default docked Right
+    
+    // Load asset textures on the fly!
+    "tileset" "[TILESET_B64]" load-sprite
+    "player" "[PLAYER_B64]" load-sprite
+  THEN
+;
+
+// Get texture coordinates for a tile type
+: get-tile-uv
+  // tile_id
+  dup 0 == IF pop 0 0 exit THEN
+  dup 1 == IF pop 32 0 exit THEN
+  dup 2 == IF pop 64 0 exit THEN
+  dup 3 == IF pop 96 0 exit THEN
+  dup 4 == IF pop 0 32 exit THEN
+  dup 5 == IF pop 32 32 exit THEN
+  dup 6 == IF pop 64 32 exit THEN
+  dup 7 == IF pop 96 32 exit THEN
+  pop 0 0
+;
+
+// Procedural Map Generator for 3x3 Grid
+: get-map-tile
+  // col row tx ty -- tile_id
+  53 ! 52 ! 51 ! 50 !
+  
+  // Center Town Map (1, 1)
+  50 @ 1 == 51 @ 1 == AND IF
+    // Outer walls
+    53 @ 0 == 53 @ 11 == OR 52 @ 0 == OR 52 @ 14 == OR IF
+      52 @ 7 == 52 @ 8 == OR 53 @ 0 == 53 @ 11 == OR AND NOT IF
+        53 @ 5 == 53 @ 6 == OR 52 @ 0 == 52 @ 14 == OR AND NOT IF
+          2 exit
+        THEN
+      THEN
+    THEN
+    // Central House (brick walls, wood floor)
+    52 @ 5 >= 52 @ 9 <= AND 53 @ 3 >= 53 @ 7 <= AND AND IF
+      52 @ 5 == 52 @ 9 == OR 53 @ 3 == OR 53 @ 7 == OR IF
+        52 @ 7 == 53 @ 7 == AND NOT IF 6 exit THEN
+      THEN
+      4 exit // wood
+    THEN
+    // Paths
+    52 @ 7 == 52 @ 8 == OR IF 7 exit THEN
+    0 exit // Grass
+  THEN
+
+  // North Forest Map (1, 0)
+  50 @ 1 == 51 @ 0 == AND IF
+    // Spawn flowers and walls
+    52 @ 53 @ + 5 mod 0 == IF 5 exit THEN
+    52 @ 53 @ * 7 mod 0 == IF 2 exit THEN
+    0 exit
+  THEN
+
+  // South Desert Map (1, 2)
+  50 @ 1 == 51 @ 2 == AND IF
+    52 @ 53 @ + 3 mod 0 == IF 1 exit THEN // dirt
+    0 exit
+  THEN
+
+  // West Lake Map (0, 1)
+  50 @ 0 == 51 @ 1 == AND IF
+    52 @ 5 >= 52 @ 9 <= AND 53 @ 5 == 53 @ 6 == OR AND IF 4 exit THEN
+    3 exit // Water
+  THEN
+
+  // East Castle Map (2, 1)
+  50 @ 2 == 51 @ 1 == AND IF
+    52 @ 53 @ + 4 mod 0 == IF 6 exit THEN // brick
+    0 exit
+  THEN
+
+  // Corner Blends
+  0 // default grass
+;
+
+// Collision Detection: Returns 1 if solid, 0 otherwise
+: is-solid
+  // local_x local_y -- solid?
+  map_row @ map_height * + swap
+  map_col @ map_width * + swap
+  
+  // abs_x abs_y -- solid?
+  tile_size / swap tile_size / swap
+  55 ! 54 ! // ty in 55, tx in 54
+  
+  // Calculate map coordinates
+  54 @ 15 / // map_col
+  55 @ 12 / // map_row
+  
+  // Constrain map grids
+  dup 0 < IF pop 0 THEN dup 2 > IF pop 2 THEN // constrain map_row
+  swap dup 0 < IF pop 0 THEN dup 2 > IF pop 2 THEN swap // constrain map_col
+  
+  57 ! 56 ! // map_row in 57, map_col in 56
+  
+  56 @ 57 @ 54 @ 15 mod 55 @ 12 mod get-map-tile
+  
+  // Solid tiles: 2 (stone), 3 (water), 6 (brick)
+  dup 2 == swap dup 3 == swap 6 == OR OR IF 1 ELSE 0 THEN
+;
+
+// --- MOVEMENT & CONTROLS ---
+: process-input
+  player_state @ 2 == IF exit THEN // Can't move while attacking
+  player_state @ was_moving !
+
+  // If already moving towards target, continue interpolating
+  player_x @ target_x @ == player_y @ target_y @ == AND NOT IF
+    1 player_state !
+    player_x @ target_x @ < IF
+      player_x @ 4 + player_x !
+    THEN
+    player_x @ target_x @ > IF
+      player_x @ 4 - player_x !
+    THEN
+    player_y @ target_y @ < IF
+      player_y @ 4 + player_y !
+    THEN
+    player_y @ target_y @ > IF
+      player_y @ 4 - player_y !
+    THEN
+    
+    // If we reached target, fall through to check keys immediately
+    player_x @ target_x @ == player_y @ target_y @ == AND NOT IF
+      exit
+    THEN
+  THEN
+
+  0 player_state ! // Default idle
+
+  // Arrow UP (265) or W (87)
+  265 key-down? 87 key-down? OR IF
+    3 player_dir !
+    player_x @ 64 mod 0 == IF
+      player_x @ 16 - player_y @ 32 - is-solid
+      player_x @ 16 + player_y @ 32 - is-solid
+      over over AND IF
+        pop pop
+      ELSE
+        IF
+          pop
+          262 key-down? 68 key-down? OR NOT IF
+            player_x @ 32 - target_x !
+            was_moving @ 0 == IF player_x @ 4 - player_x ! THEN
+            1 player_state !
+          THEN
+        ELSE
+          IF
+            263 key-down? 65 key-down? OR NOT IF
+              player_x @ 32 + target_x !
+              was_moving @ 0 == IF player_x @ 4 + player_x ! THEN
+              1 player_state !
+            THEN
+          ELSE
+            player_y @ 32 - target_y !
+            was_moving @ 0 == IF player_y @ 4 - player_y ! THEN
+            1 player_state !
+          THEN
+        THEN
+      THEN
+    ELSE
+      player_x @ player_y @ 32 - is-solid 0 == IF
+        player_y @ 32 - target_y !
+        was_moving @ 0 == IF player_y @ 4 - player_y ! THEN
+        1 player_state !
+      THEN
+    THEN
+  THEN
+
+  // Arrow DOWN (264) or S (83)
+  264 key-down? 83 key-down? OR IF
+    0 player_dir !
+    player_x @ 64 mod 0 == IF
+      player_x @ 16 - player_y @ 32 + is-solid
+      player_x @ 16 + player_y @ 32 + is-solid
+      over over AND IF
+        pop pop
+      ELSE
+        IF
+          pop
+          262 key-down? 68 key-down? OR NOT IF
+            player_x @ 32 - target_x !
+            was_moving @ 0 == IF player_x @ 4 - player_x ! THEN
+            1 player_state !
+          THEN
+        ELSE
+          IF
+            263 key-down? 65 key-down? OR NOT IF
+              player_x @ 32 + target_x !
+              was_moving @ 0 == IF player_x @ 4 + player_x ! THEN
+              1 player_state !
+            THEN
+          ELSE
+            player_y @ 32 + target_y !
+            was_moving @ 0 == IF player_y @ 4 + player_y ! THEN
+            1 player_state !
+          THEN
+        THEN
+      THEN
+    ELSE
+      player_x @ player_y @ 32 + is-solid 0 == IF
+        player_y @ 32 + target_y !
+        was_moving @ 0 == IF player_y @ 4 + player_y ! THEN
+        1 player_state !
+      THEN
+    THEN
+  THEN
+
+  // Arrow LEFT (263) or A (65)
+  263 key-down? 65 key-down? OR IF
+    1 player_dir !
+    player_y @ 64 mod 0 == IF
+      player_x @ 32 - player_y @ 16 - is-solid
+      player_x @ 32 - player_y @ 16 + is-solid
+      over over AND IF
+        pop pop
+      ELSE
+        IF
+          pop
+          264 key-down? 83 key-down? OR NOT IF
+            player_y @ 32 - target_y !
+            was_moving @ 0 == IF player_y @ 4 - player_y ! THEN
+            1 player_state !
+          THEN
+        ELSE
+          IF
+            265 key-down? 87 key-down? OR NOT IF
+              player_y @ 32 + target_y !
+              was_moving @ 0 == IF player_y @ 4 + player_y ! THEN
+              1 player_state !
+            THEN
+          ELSE
+            player_x @ 32 - target_x !
+            was_moving @ 0 == IF player_x @ 4 - player_x ! THEN
+            1 player_state !
+          THEN
+        THEN
+      THEN
+    ELSE
+      player_x @ 32 - player_y @ is-solid 0 == IF
+        player_x @ 32 - target_x !
+        was_moving @ 0 == IF player_x @ 4 - player_x ! THEN
+        1 player_state !
+      THEN
+    THEN
+  THEN
+
+  // Arrow RIGHT (262) or D (68)
+  262 key-down? 68 key-down? OR IF
+    2 player_dir !
+    player_y @ 64 mod 0 == IF
+      player_x @ 32 + player_y @ 16 - is-solid
+      player_x @ 32 + player_y @ 16 + is-solid
+      over over AND IF
+        pop pop
+      ELSE
+        IF
+          pop
+          264 key-down? 83 key-down? OR NOT IF
+            player_y @ 32 - target_y !
+            was_moving @ 0 == IF player_y @ 4 - player_y ! THEN
+            1 player_state !
+          THEN
+        ELSE
+          IF
+            265 key-down? 87 key-down? OR NOT IF
+              player_y @ 32 + target_y !
+              was_moving @ 0 == IF player_y @ 4 + player_y ! THEN
+              1 player_state !
+            THEN
+          ELSE
+            player_x @ 32 + target_x !
+            was_moving @ 0 == IF player_x @ 4 + player_x ! THEN
+            1 player_state !
+          THEN
+        THEN
+      THEN
+    ELSE
+      player_x @ 32 + player_y @ is-solid 0 == IF
+        player_x @ 32 + target_x !
+        was_moving @ 0 == IF player_x @ 4 + player_x ! THEN
+        1 player_state !
+      THEN
+    THEN
+  THEN
+
+  // SPACE (32) to Attack
+  32 key-down? IF
+    2 player_state !
+    0 attack_tick !
+  THEN
+;
+
+// --- MAP GRID TRANSITIONS ---
+: handle-map-transitions
+  // Left Edge
+  player_x @ 0 < IF
+    map_col @ 0 > IF
+      map_col @ 1 - map_col !
+      player_x @ map_width + player_x !
+      target_x @ map_width + target_x !
+    ELSE
+      0 player_x !
+      0 target_x !
+    THEN
+  THEN
+
+  // Right Edge
+  player_x @ map_width >= IF
+    map_col @ 2 < IF
+      map_col @ 1 + map_col !
+      player_x @ map_width - player_x !
+      target_x @ map_width - target_x !
+    ELSE
+      map_width 32 - player_x !
+      map_width 32 - target_x !
+    THEN
+  THEN
+
+  // Top Edge
+  player_y @ 0 < IF
+    map_row @ 0 > IF
+      map_row @ 1 - map_row !
+      player_y @ map_height + player_y !
+      target_y @ map_height + target_y !
+    ELSE
+      0 player_y !
+      0 target_y !
+    THEN
+  THEN
+
+  // Bottom Edge
+  player_y @ map_height >= IF
+    map_row @ 2 < IF
+      map_row @ 1 + map_row !
+      player_y @ map_height - player_y !
+      target_y @ map_height - target_y !
+    ELSE
+      map_height 32 - player_y !
+      map_height 32 - target_y !
+    THEN
+  THEN
+;
+
+// --- UPDATE ANIMATION TICK ---
+: update-animation
+  player_state @ 1 == IF
+    anim_tick @ 1 + anim_tick !
+    anim_tick @ 6 >= IF
+      0 anim_tick !
+      player_frame @ 1 + 3 mod player_frame !
+    THEN
+  ELSE
+    player_state @ 2 == IF
+      attack_tick @ 1 + attack_tick !
+      attack_tick @ 12 >= IF
+        0 player_state !
+        0 attack_tick !
+      THEN
+    ELSE
+      0 player_frame !
+    THEN
+  THEN
+;
+
+// --- Helper Words for Min/Max ---
+: min
+  over over < IF pop ELSE swap pop THEN
+;
+
+: max
+  over over > IF pop ELSE swap pop THEN
+;
+
+// --- RENDERING PIPELINE ---
+: draw-game-world
+  // Calculate Viewport bounds
+  sidebar_dock @ 0 == IF
+    340 20 1240 860
+  ELSE
+    20 20 1240 860
+  THEN
+  
+  // Store viewport bounds in temp variables
+  43 ! // vh
+  42 ! // vw
+  41 ! // vy
+  40 ! // vx
+  
+  // Calculate absolute player coordinates
+  map_col @ map_width * player_x @ +
+  map_row @ map_height * player_y @ +
+  // stack: px py
+  
+  // Camera offsets (to center player in viewport)
+  43 @ 2 / - // cam_y = py - vh/2
+  45 ! // store cam_y in var 45
+  
+  42 @ 2 / - // cam_x = px - vw/2
+  44 ! // store cam_x in var 44
+  
+  // Calculate visible global tile limits (gx: 0..44, gy: 0..35)
+  45 @ 64 / 1 - 0 max // min_gy
+  45 @ 43 @ + 64 / 1 + 35 min // max_gy
+  
+  44 @ 64 / 1 - 0 max // min_gx
+  44 @ 42 @ + 64 / 1 + 44 min // max_gx
+  
+  // Store limits in temp variables to avoid deep stack operations
+  62 ! // max_gx in 62
+  61 ! // min_gx in 61
+  60 ! // max_gy in 60
+  
+  // Outer loop: gy from min_gy to max_gy
+  BEGIN
+    // Stack: gy
+    dup 60 @ <= WHILE
+      
+      // Inner loop: gx from min_gx to max_gx
+      61 @ // gx
+      BEGIN
+        dup 62 @ <= WHILE
+          // Inside loop: gy, gx
+          
+          // Calculate screen coordinates
+          dup 64 * // abs_x
+          3 pick 64 * // abs_y
+          
+          45 @ - 41 @ + // screen_y
+          swap 44 @ - 40 @ + swap // screen_x
+          
+          47 ! 46 ! // store screen_y in 47, screen_x in 46
+          
+          // Get map tile
+          dup 15 / // col
+          3 pick 12 / // row
+          3 pick 15 mod // tx
+          5 pick 12 mod // ty
+          get-map-tile
+          get-tile-uv // leaves tu tv
+          
+          // Draw tile
+          "tileset"
+          46 @ 47 @
+          64 64
+          7 pick 7 pick
+          32 32
+          draw-sprite
+          pop pop // clean up tu tv
+          
+          1 + // increment gx
+        REPEAT
+      pop // pop gx
+      1 + // increment gy
+    REPEAT
+  pop // pop gy
+  
+  // Draw Player Character Sprite
+  "player"
+  42 @ 2 / 40 @ + 24 - // player_screen_x
+  43 @ 2 / 41 @ + 24 - // player_screen_y
+  48 48 // w h
+  player_state @ 2 == IF
+    player_dir @ 32 * 128
+  ELSE
+    player_dir @ 32 *
+    player_frame @ 32 * swap
+  THEN
+  32 32 draw-sprite
+;
+
+// --- DOCKABLE SIDEBAR MENU ---
+: draw-sidebar
+  sidebar_dock @ 0 == IF
+    20 20 300 860 "Character Stats & Menu" ui-panel
+    35 70 "title" "[PLAYERNAME]" ui-text
+    35 110 "green" "Level: 1" ui-text
+    35 150 "accent" "HP: 100/100" ui-text
+    35 190 "yellow" "MP: 50/50" ui-text
+    
+    // Inventory items list mock
+    35 250 "title" "INVENTORY:" ui-text
+    45 290 "accent" "- Bronze Sword" ui-text
+    45 320 "accent" "- Minor Health Potion" ui-text
+    45 350 "accent" "- Wooden Buckler" ui-text
+    
+    35 450 270 35 "Dock Sidebar Right" ui-button IF
+      1 sidebar_dock !
+    THEN
+    
+    35 500 270 35 "Return to Main Menu" ui-button IF
+      "/play menu" send-line
+    THEN
+  ELSE
+    1280 20 300 860 "Character Stats & Menu" ui-panel
+    1295 70 "title" "[PLAYERNAME]" ui-text
+    1295 110 "green" "Level: 1" ui-text
+    1295 150 "accent" "HP: 100/100" ui-text
+    1295 190 "yellow" "MP: 50/50" ui-text
+    
+    // Inventory items list mock
+    1295 250 "title" "INVENTORY:" ui-text
+    1305 290 "accent" "- Bronze Sword" ui-text
+    1305 320 "accent" "- Minor Health Potion" ui-text
+    1305 350 "accent" "- Wooden Buckler" ui-text
+    
+    1295 450 270 35 "Dock Sidebar Left" ui-button IF
+      0 sidebar_dock !
+    THEN
+    
+    1295 500 270 35 "Return to Main Menu" ui-button IF
+      "/play menu" send-line
+    THEN
+  THEN
+;
+
+// --- MAIN LOOP ENTRY ---
+: main
+  init-vars
+  process-input
+  handle-map-transitions
+  update-animation
+  
+  draw-game-world
+  draw-sidebar
+  
+  // Draw instructions at the bottom
+  sidebar_dock @ 0 == IF
+    350 820 "accent" "Use Arrow Keys or W/A/S/D to move. Space to Attack. Defeat the stone walls!" ui-text
+  ELSE
+    30 820 "accent" "Use Arrow Keys or W/A/S/D to move. Space to Attack. Defeat the stone walls!" ui-text
+  THEN
+;

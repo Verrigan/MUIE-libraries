@@ -10,15 +10,41 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
   over over / * -
 ;
 
+: min
+  over over < IF pop ELSE swap pop THEN
+;
+
+: max
+  over over < IF swap pop ELSE pop THEN
+;
+
 // --- Variable slot definitions ---
 // NOTE: Memory slots 10-15 are reserved/shared with the client/server system
 // for system-level graphics, configuration, and state maintenance (e.g., slot 11 is read by NoxClient for grid state).
 : init_flag 10 ;
 : show_grid 11 ;
-: show_shapes 12 ;
+: camera_mode 12 ;
 : shape_angle 13 ;
 : camera_auto_rotate 14 ;
 : camera_angle 15 ;
+: show_menu 16 ;
+: last_m_state 17 ;
+: frame_count 20 ;
+: show_shapes 21 ;
+
+: camera_pitch 54 ;
+: camera_dist 55 ;
+
+: last_mouse_x 84 ;
+: last_mouse_y 85 ;
+: mouse_dragging 86 ;
+
+: temp_mx 928 ;
+: temp_my 929 ;
+: temp_mb 930 ;
+: temp_dx 931 ;
+: temp_dy 932 ;
+: temp_m_down 933 ;
 
 : init-vars
   init_flag @ 0 == IF
@@ -28,6 +54,15 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
     0 shape_angle !
     1 camera_auto_rotate !
     0 camera_angle !
+    1 show_menu !
+    0 last_m_state !
+    0 frame_count !
+    -15 camera_pitch !
+    8 camera_dist !
+    0 camera_mode !
+    0 last_mouse_x !
+    0 last_mouse_y !
+    0 mouse_dragging !
   THEN
 ;
 
@@ -35,85 +70,132 @@ An interactive dashboard demonstrating the LWJGL/OpenGL 3D/2D capability of Nox.
   // Increment cube rotation angle
   shape_angle @ 2 + 360 mod shape_angle !
   
-  // If camera auto-rotate is active, increment camera angle
+  // If camera auto-rotate is active, increment camera angle every 3 frames
   camera_auto_rotate @ 1 == IF
-    camera_angle @ 1 + 360 mod camera_angle !
+    frame_count @ 1 + 3 mod frame_count !
+    frame_count @ 0 == IF
+      camera_angle @ 1 + 360 mod camera_angle !
+    THEN
   THEN
 ;
 
 : setup-camera
   // Camera transform: x y z pitch yaw roll
-  0 2 6 -15 camera_angle @ 0 set-camera
+  0 2 camera_dist @ camera_pitch @ camera_angle @ 0 set-camera
 ;
 
 : draw-3d-scene
-  // Draw rotating cube and pyramids at coordinates if active
+  // Draw rotating cube, sphere, and pyramids at coordinates if active
   show_shapes @ 1 == IF
-    "cube" 0 0 0 shape_angle @ shape_angle @ 0 draw-mesh
-    "pyramid" 2 0 -2 0 shape_angle @ 0 draw-mesh
-    "pyramid" -2 0 -2 0 shape_angle @ 0 draw-mesh
+    "cube_blue" 0 0 0 shape_angle @ shape_angle @ 0 draw-mesh
+    "sphere_earth" 0 150 0 0 shape_angle @ 0 draw-mesh
+    "pyramid_cyan" 2 0 -2 0 shape_angle @ 0 draw-mesh
+    "pyramid_magenta" -2 0 -2 0 shape_angle @ 0 draw-mesh
+  THEN
+;
+
+: check-key-toggle-menu
+  // GLFW keycode for 'M' is 77
+  77 key-down? temp_m_down !
+  temp_m_down @ last_m_state @ 0 == * IF
+    show_menu @ 1 == IF 0 show_menu ! ELSE 1 show_menu ! THEN
+  THEN
+  temp_m_down @ last_m_state !
+;
+
+: handle-mouse-drag
+  // Right-click drag camera rotation
+  mouse-pos temp_mb ! temp_my ! temp_mx !
+  temp_mb @ 2 / 2 mod 1 == IF
+    mouse_dragging @ 1 == IF
+      temp_mx @ last_mouse_x @ - temp_dx !
+      temp_my @ last_mouse_y @ - temp_dy !
+      camera_angle @ temp_dx @ - 360 mod camera_angle !
+      camera_pitch @ temp_dy @ - -90 max 90 min camera_pitch !
+    THEN
+    1 mouse_dragging !
+    temp_mx @ last_mouse_x !
+    temp_my @ last_mouse_y !
+  ELSE
+    0 mouse_dragging !
   THEN
 ;
 
 : draw-gui
   // Draw the main UI Panel
-  550 250 500 400 "Nox Interface Demo Menu" ui-panel
+  550 200 500 480 "Nox Interface Demo Menu" ui-panel
   
   // Title Text
-  570 300 "title" "MUIE-NOX INTERACTIVE MENU" ui-text
+  570 250 "title" "MUIE-NOX INTERACTIVE MENU" ui-text
   
   // Button 1: Toggle Grid
-  570 340 300 35 "Toggle 3D Grid" ui-button IF
+  570 290 300 35 "Toggle 3D Grid" ui-button IF
     show_grid @ 1 == IF 0 show_grid ! ELSE 1 show_grid ! THEN
   THEN
   
   // Grid status text
   show_grid @ 1 == IF
-    890 350 "green" "ACTIVE" ui-text
+    890 300 "green" "ACTIVE" ui-text
   ELSE
-    890 350 "red" "INACTIVE" ui-text
+    890 300 "red" "INACTIVE" ui-text
   THEN
 
-  // Button 2: Toggle Rotating Cube
-  570 390 300 35 "Toggle 3D Shapes" ui-button IF
+  // Button 2: Toggle Rotating Shapes
+  570 340 300 35 "Toggle 3D Shapes" ui-button IF
     show_shapes @ 1 == IF 0 show_shapes ! ELSE 1 show_shapes ! THEN
   THEN
 
   // Shapes status text
   show_shapes @ 1 == IF
-    890 400 "green" "ACTIVE" ui-text
+    890 350 "green" "ACTIVE" ui-text
   ELSE
-    890 400 "red" "INACTIVE" ui-text
+    890 350 "red" "INACTIVE" ui-text
   THEN
 
   // Button 3: Toggle Camera Auto-Rotate
-  570 440 300 35 "Toggle Camera Rotation" ui-button IF
+  570 390 300 35 "Toggle Camera Rotation" ui-button IF
     camera_auto_rotate @ 1 == IF 0 camera_auto_rotate ! ELSE 1 camera_auto_rotate ! THEN
   THEN
 
   // Camera status text
   camera_auto_rotate @ 1 == IF
-    890 450 "green" "ACTIVE" ui-text
+    890 400 "green" "ACTIVE" ui-text
   ELSE
-    890 450 "red" "INACTIVE" ui-text
+    890 400 "red" "INACTIVE" ui-text
+  THEN
+
+  // Button 4: Toggle Camera Mode
+  570 440 300 35 "Toggle Camera Mode" ui-button IF
+    camera_mode @ 0 == IF 1 camera_mode ! ELSE 0 camera_mode ! THEN
+  THEN
+
+  // Camera Mode status text
+  camera_mode @ 0 == IF
+    890 450 "green" "ORBIT" ui-text
+  ELSE
+    890 450 "accent" "TRIPOD" ui-text
   THEN
 
   // Display Camera angle info
   570 495 "yellow" "Camera Angle: " ui-text
   720 495 "yellow" camera_angle @ to-str ui-text
   
+  // Button 5: Return to Main Menu
   570 540 300 35 "Return to Main Menu" ui-button IF
     "/play menu" send-line
   THEN
   
-  // Footer text
-  570 590 "accent" "Press ESC to return to login / exit." ui-text
+  570 600 "accent" "Press Esc to Go Back [M to Toggle Menu]" ui-text
 ;
 
 : main
   init-vars
   update-animation
+  check-key-toggle-menu
+  handle-mouse-drag
   setup-camera
   draw-3d-scene
-  draw-gui
+  show_menu @ 1 == IF
+    draw-gui
+  THEN
 ;

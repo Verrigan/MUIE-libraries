@@ -354,13 +354,16 @@ help guides, and redirects player input mode to vie_loop.
 ;
 // Calculate predicted scroll/y for unwrap mode
 : predict-scroll-y-unwrap // ( sy cy vh -- new_sy )
-  1 pick 3 pick - 1 < IF
-    pop swap pop 1 - dup 0 < IF pop 0 THEN
+  932 ! // vh
+  931 ! // cy
+  930 ! // sy
+  931 @ 930 @ - 1 < IF
+    931 @ 1 - dup 0 < IF pop 0 THEN
   ELSE
-    1 pick 3 pick - over > IF
-      swap rot pop swap -
+    931 @ 930 @ - 932 @ > IF
+      931 @ 932 @ -
     ELSE
-      pop pop
+      930 @
     THEN
   THEN
 ;
@@ -743,7 +746,7 @@ help guides, and redirects player input mode to vie_loop.
   me "/.vie/vierc" getprop
   dup "" strcmp 0 == IF
     pop
-    me "/.vie/vierc" "keywords=3; prims=5; ops=1; nums=2; strs=2; comments=6; lns=3; gutter=3;" setprop pop
+    me "/.vie/vierc" "# VIE Syntax Coloring Configuration File\n# \n# Supported items:\n#   keywords  - Keywords (if, else, while, :, ;, etc.)\n#   prims     - OOF primitives (dup, drop, getprop, etc.)\n#   ops       - Operators (+, -, ==, <, etc.)\n#   nums      - Numeric literals (123, -1, etc.)\n#   strs      - String literals (\"hello\")\n#   comments  - Comments (// comments or /* comments */)\n#   lns       - Line number digits\n#   gutter    - Vertical separator line (|)\n# \n# Available ANSI Color Codes:\n#   0 - Default (standard terminal foreground color)\n#   1 - Red\n#   2 - Green\n#   3 - Yellow\n#   4 - Blue\n#   5 - Magenta\n#   6 - Cyan\n#   7 - White\n#   8 - Gray (dark white)\n# \n# Example format (remove '#' to enable):\n# keywords=6; prims=4; ops=2; nums=1; strs=7; comments=8; lns=3; gutter=3;\n# \n# Current active configuration:\nkeywords=3; prims=5; ops=1; nums=2; strs=2; comments=6; lns=3; gutter=3;" setprop pop
     me "/.vie/vierc" getprop
   THEN
 

@@ -354,13 +354,16 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
 ;
 // Calculate predicted scroll/y for unwrap mode
 : predict-scroll-y-unwrap // ( sy cy vh -- new_sy )
-  1 pick 3 pick - 1 < IF
-    pop swap pop 1 - dup 0 < IF pop 0 THEN
+  932 ! // vh
+  931 ! // cy
+  930 ! // sy
+  931 @ 930 @ - 1 < IF
+    931 @ 1 - dup 0 < IF pop 0 THEN
   ELSE
-    1 pick 3 pick - over > IF
-      swap rot pop swap -
+    931 @ 930 @ - 932 @ > IF
+      931 @ 932 @ -
     ELSE
-      pop pop
+      930 @
     THEN
   THEN
 ;
@@ -1067,59 +1070,53 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
 ;
 
 : find-in-line // ( line_text query start_col -- match_col_1indexed )
-  965 ! // start_col
-  966 ! // query
-  dup 969 ! // line_text
-  strlen 967 ! // line length
-  966 @ strlen 968 ! // query length
-  
-  968 @ 0 == IF
+  932 ! // start_col
+  931 ! // query
+  930 ! // line_text
+  931 @ strlen 0 == IF
     -1
   ELSE
-    -1 // match index
-    965 @
+    -1 934 ! // match_index = -1
+    932 @ 933 ! // idx = start_col
     BEGIN
-      dup 967 @ 968 @ - <=
+      933 @ 930 @ strlen 931 @ strlen - <=
     WHILE
-      969 @ 966 @ 3 pick match-at? IF
-        swap pop dup 1 + swap // Put match_col_1indexed on stack
-        967 @ // terminate loop
+      930 @ 931 @ 933 @ match-at? IF
+        933 @ 1 + 934 ! // match_index = idx + 1
+        930 @ strlen 933 !
       THEN
-      1 +
+      933 @ 1 + 933 !
     REPEAT
-    pop
+    934 @
   THEN
 ;
 
 : find-in-line-backward // ( line_text query start_col_exclusive -- match_col_1indexed )
-  965 ! // start_col_exclusive (0-indexed)
-  966 ! // query
-  dup 969 ! // line_text
-  strlen 967 ! // line length
-  966 @ strlen 968 ! // query length
-  
-  968 @ 0 == IF
+  932 ! // start_col_exclusive
+  931 ! // query
+  930 ! // line_text
+  931 @ strlen 0 == IF
     -1
   ELSE
-    -1 // match index
-    965 @ 1 -
-    dup 967 @ 968 @ - min
+    -1 934 ! // match_index = -1
+    932 @ 1 -
+    930 @ strlen 931 @ strlen -
+    min 933 ! // idx
     BEGIN
-      dup 0 >=
+      933 @ 0 >=
     WHILE
-      969 @ 966 @ 3 pick match-at? IF
-        swap pop dup 1 + swap
-        -1 // terminate loop
+      930 @ 931 @ 933 @ match-at? IF
+        933 @ 1 + 934 ! // match_index = idx + 1
+        -1 933 !
       THEN
-      1 -
+      933 @ 1 - 933 !
     REPEAT
-    pop
+    934 @
   THEN
 ;
 
 : do-search-forward // ( query -- )
   dup me "/.vie/search_query" rot setprop pop
-  me "/.vie/search_query" getprop
   dup "" strcmp 0 == IF
     pop
   ELSE
@@ -1198,7 +1195,6 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
 
 : do-search-backward // ( query -- )
   dup me "/.vie/search_query" rot setprop pop
-  me "/.vie/search_query" getprop
   dup "" strcmp 0 == IF
     pop
   ELSE
@@ -1627,8 +1623,26 @@ arrow navigation, cursor coordinate mappings, and files saving/exits.
     dup 1 strcut
     swap "/" strcmp 0 == IF
       swap pop
-      do-search-forward
+      dup "next" strcmp 0 == IF
+        pop
+        me "/.vie/search_query" getprop dup "" strcmp 0 == IF
+          pop me "/.vie/msg" "No previous search pattern" setprop pop
+        ELSE
+          do-search-forward
+        THEN
+      ELSE
+      dup "prev" strcmp 0 == IF
+        pop
+        me "/.vie/search_query" getprop dup "" strcmp 0 == IF
+          pop me "/.vie/msg" "No previous search pattern" setprop pop
+        ELSE
+          do-search-backward
+        THEN
+      ELSE
+        do-search-forward
+      THEN THEN
       0 me "/.vie/mode" rot to-str setprop pop
+      13
     ELSE
       pop
       dup handle-substitution-cmd IF
